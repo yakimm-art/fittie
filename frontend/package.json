@@ -1,0 +1,13 @@
+{
+  "name": "@fittie/frontend",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Frontend PWA for Fittie",
+  "scripts": {
+    "dev": "echo 'Frontend development - integrate with Dreamflow'",
+    "build": "echo 'Frontend build - integrate with Dreamflow'",
+    "clean": "rm -rf node_modules"
+  },
+  "dependencies": {},
+  "devDependencies": {}
+}

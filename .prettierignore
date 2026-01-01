@@ -1,0 +1,10 @@
+node_modules
+dist
+build
+cdk.out
+*.log
+.env
+.env.*
+test-audio
+coverage
+.DS_Store

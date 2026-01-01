@@ -8,6 +8,39 @@
 [![AWS](https://img.shields.io/badge/AWS-Powered-orange)](https://aws.amazon.com/)
 [![Dreamflow](https://img.shields.io/badge/Dreamflow-Agentic-purple)](https://dreamflow.ai/)
 
+## 📁 Project Structure
+
+```
+fittie/
+├── frontend/          # Dreamflow PWA (Progressive Web App)
+├── backend/           # AWS Lambda functions
+│   ├── src/          # TypeScript Lambda handlers
+│   └── package.json  # Backend dependencies
+├── infra/            # AWS CDK infrastructure code
+│   ├── lib/          # CDK stack definitions
+│   └── package.json  # Infrastructure dependencies
+├── shared/           # Shared TypeScript types
+│   ├── types/        # Common type definitions
+│   └── package.json  # Shared package
+├── docs/             # Documentation
+│   └── elevenlabs-integration.md
+├── scripts/          # Utility scripts
+│   ├── setup-billing-alarms.sh
+│   ├── setup-github-secrets.sh
+│   ├── test-elevenlabs.sh
+│   ├── create-github-issues.sh
+│   └── create-github-labels.sh
+├── .github/
+│   └── workflows/    # CI/CD pipelines
+│       └── ci.yml    # GitHub Actions workflow
+├── package.json      # Monorepo root configuration
+├── .editorconfig     # Editor formatting rules
+├── .eslintrc.js      # ESLint configuration
+└── .prettierrc.js    # Prettier configuration
+```
+
+This is a **monorepo** using npm workspaces for managing multiple packages.
+
 ---
 
 ## 💡 The Idea
@@ -232,29 +265,67 @@ Demonstrates comprehensive AWS service integration (8+ services) while staying w
 
 ---
 
-## 📂 Project Structure
+## � Getting Started
 
+### Prerequisites
+
+- Node.js 18+
+- npm 9+
+- AWS CLI configured
+- GitHub CLI (for secrets management)
+
+### Installation
+
+1. Clone the repository:
+```bash
+git clone https://github.com/yourusername/fittie.git
+cd fittie
 ```
-fittie/
-├── README.md                    # This file
-├── AGENTS.md                    # AI assistant instructions
-├── .gitignore                   # Git ignore rules
-└── openspec/                    # Planning & specifications
-    ├── project.md               # Project context & conventions
-    ├── AGENTS.md                # OpenSpec workflow guide
-    └── changes/                 # Change proposals
-        └── add-fittie-core-system/
-            ├── proposal.md      # High-level overview
-            ├── design.md        # Technical architecture
-            ├── tasks.md         # Implementation checklist
-            └── specs/           # Capability specifications
-                ├── agentic-ui-engine/
-                ├── voice-coaching-system/
-                ├── physical-state-manager/
-                ├── routine-generator/
-                ├── biomechanical-validator/
-                └── multi-surface-sync/
+
+2. Install dependencies:
+```bash
+npm install
 ```
+
+3. Set up environment variables:
+```bash
+cp .env.example .env
+# Add your API keys to .env
+```
+
+4. Run tests:
+```bash
+npm test
+```
+
+### Development
+
+```bash
+# Run backend in watch mode
+npm run dev:backend
+
+# Run frontend (Dreamflow)
+npm run dev:frontend
+
+# Lint and format code
+npm run lint:fix
+npm run format
+```
+
+### Deployment
+
+```bash
+# Deploy infrastructure with CDK
+npm run deploy:infra
+```
+
+---
+
+## 📚 Documentation
+
+- [ElevenLabs Integration Guide](docs/elevenlabs-integration.md)
+- [Scripts README](scripts/README.md)
+- [OpenSpec Planning](openspec/)
 
 ---
 
