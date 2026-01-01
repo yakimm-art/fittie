@@ -1,0 +1,6 @@
+{
+  "app": "npx ts-node --prefer-ts-exts bin/fittie.ts",
+  "@aws-cdk/aws-lambda:recognizeLayerVersion": true,
+  "@aws-cdk/core:checkSecretUsage": true,
+  "@aws-cdk/core:target-partitions": ["aws", "aws-cn"]
+}

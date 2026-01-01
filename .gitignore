@@ -51,3 +51,5 @@ test-audio/
 *.tmp
 *.temp
 .cache/
+infra/README.md
+.gitignore
