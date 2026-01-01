@@ -18,5 +18,5 @@
 openspec/
 
 AGENTS.md
-
-AGENTS.md
+scripts/create-github-issues.sh
+scripts/create-github-labels.sh
