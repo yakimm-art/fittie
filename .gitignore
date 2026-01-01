@@ -20,3 +20,15 @@ openspec/
 AGENTS.md
 scripts/create-github-issues.sh
 scripts/create-github-labels.sh
+scripts/README.md
+scripts/test-elevenlabs.sh
+docs/elevenlabs-integration.md
+test-audio/user_info.json
+test-audio/voices.json
+test-audio/stream_test.mp3
+test-audio/test_0.mp3
+test-audio/test_1.mp3
+test-audio/test_2.mp3
+test-audio/test_3.mp3
+test-audio/test_4.mp3
+scripts/setup-github-secrets.sh
