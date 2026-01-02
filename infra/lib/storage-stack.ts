@@ -83,12 +83,6 @@ export class StorageStack extends cdk.Stack {
       exportName: 'FittiePWABucketArn',
     });
 
-    new cdk.CfnOutput(this, 'PWAWebsiteURL', {
-      value: this.pwaBucket.bucketWebsiteUrl,
-      description: 'PWA Website URL',
-      exportName: 'FittiePWAWebsiteURL',
-    });
-
     new cdk.CfnOutput(this, 'MediaBucketName', {
       value: this.mediaBucket.bucketName,
       description: 'Media Assets Bucket Name',
