@@ -327,6 +327,41 @@ npm test
 
 ### Development
 
+#### Local DynamoDB Setup (Optional)
+
+For offline development and testing:
+
+1. **Enable Docker in WSL** (if not already done):
+   - Install Docker Desktop
+   - Enable WSL 2 integration in Docker Desktop settings
+   - Restart your terminal
+
+2. **Start local DynamoDB**:
+```bash
+./scripts/local-dev.sh start
+```
+
+This will:
+- Start DynamoDB Local on `http://localhost:8000`
+- Start DynamoDB Admin UI on `http://localhost:8001`
+- Create all three tables with sample data
+
+3. **Use local environment**:
+```bash
+# Source local environment variables
+export $(cat .env.local | xargs)
+
+# Run your backend with local DynamoDB
+npm run dev:backend
+```
+
+4. **Stop local services**:
+```bash
+./scripts/local-dev.sh stop
+```
+
+#### Development Commands
+
 ```bash
 # Run backend in watch mode
 npm run dev:backend
