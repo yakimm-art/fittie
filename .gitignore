@@ -53,3 +53,5 @@ test-audio/
 .cache/
 infra/README.md
 .gitignore
+scripts/check-env.sh
+scripts/GUIDE.md

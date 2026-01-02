@@ -290,7 +290,34 @@ npm install
 3. Set up environment variables:
 ```bash
 cp .env.example .env
-# Add your API keys to .env
+# Edit .env with your actual values
+```
+
+#### Required Environment Variables
+
+| Variable | Description | Example |
+|----------|-------------|---------|
+| `AWS_REGION` | AWS region for resources | `us-east-1` |
+| `COGNITO_USER_POOL_ID` | Cognito User Pool ID | `us-east-1_xxxxxxxxx` |
+| `COGNITO_CLIENT_ID` | Cognito User Pool Client ID | `xxxxxxxxxxxxxxxxxxxx` |
+| `DYNAMODB_STATE_TABLE` | Physical state table name | `user-physical-state` |
+| `DYNAMODB_HISTORY_TABLE` | Workout history table name | `workout-history` |
+| `DYNAMODB_EXERCISE_TABLE` | Exercise knowledge base table | `exercise-knowledge-base` |
+| `S3_PWA_BUCKET` | S3 bucket for PWA hosting | `fittie-pwa-xxxxxxxxxxxx` |
+| `S3_MEDIA_BUCKET` | S3 bucket for media assets | `fittie-media-xxxxxxxxxxxx` |
+| `CLOUDFRONT_DISTRIBUTION_ID` | CloudFront distribution ID | `XXXXXXXXXXXXXX` |
+| `CLOUDFRONT_URL` | CloudFront distribution URL | `https://xxxx.cloudfront.net` |
+
+#### Optional Environment Variables
+
+| Variable | Description | Purpose |
+|----------|-------------|---------|
+| `ELEVENLABS_API_KEY` | ElevenLabs API key | Voice synthesis for coaching |
+| `DREAMFLOW_API_KEY` | Dreamflow API key | Agentic UI orchestration |
+
+Validate your environment configuration:
+```bash
+./scripts/check-env.sh
 ```
 
 4. Run tests:
