@@ -37,7 +37,16 @@ const storageStack = new StorageStack(app, 'FittieStorageStack', {
 const computeStack = new ComputeStack(app, 'FittieComputeStack', {
   env,
   description: 'Fittie Compute - Lambda Functions',
+  stateTableName: dataStack.physicalStateTable.tableName,
+  historyTableName: dataStack.workoutHistoryTable.tableName,
+  exerciseTableName: dataStack.exerciseKnowledgeBaseTable.tableName,
+  userPoolId: authStack.userPool.userPoolId,
+  userPoolClientId: authStack.userPoolClient.userPoolClientId,
 });
+
+// Add dependencies
+computeStack.addDependency(dataStack);
+computeStack.addDependency(authStack);
 
 // Frontend Stack
 const frontendStack = new FrontendStack(app, 'FittieFrontendStack', {
