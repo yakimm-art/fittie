@@ -6,6 +6,7 @@ import * as iam from 'aws-cdk-lib/aws-iam';
 import * as events from 'aws-cdk-lib/aws-events';
 import * as dynamodb from 'aws-cdk-lib/aws-dynamodb';
 import * as eventsources from 'aws-cdk-lib/aws-lambda-event-sources';
+import * as sqs from 'aws-cdk-lib/aws-sqs';
 import * as path from 'path';
 
 interface ComputeStackProps extends cdk.StackProps {
@@ -114,6 +115,12 @@ export class ComputeStack extends cdk.Stack {
       eventBusName: 'fittie-events',
     });
 
+    // DLQ for on-state-change Lambda failures
+    const onStateChangeDlq = new sqs.Queue(this, 'OnStateChangeDlq', {
+      queueName: 'fittie-on-state-change-dlq',
+      retentionPeriod: cdk.Duration.days(14),
+    });
+
     // On-State-Change Lambda - processes DynamoDB stream events
     const onStateChangeFunction = new lambda.Function(this, 'OnStateChangeFunction', {
       functionName: 'fittie-on-state-change',
@@ -156,14 +163,25 @@ export class ComputeStack extends cdk.Stack {
     // Grant stream read permissions
     stateTable.grantStreamRead(onStateChangeFunction);
 
-    // Add DynamoDB Stream as event source
+    // Add DynamoDB Stream as event source with DLQ
     onStateChangeFunction.addEventSource(
       new eventsources.DynamoEventSource(stateTable, {
         startingPosition: lambda.StartingPosition.LATEST,
         batchSize: 10,
         retryAttempts: 3,
+        onFailure: new eventsources.SqsDlq(onStateChangeDlq),
       })
     );
+
+    new cdk.CfnOutput(this, 'OnStateChangeDlqUrl', {
+      value: onStateChangeDlq.queueUrl,
+      description: 'On-State-Change DLQ URL',
+    });
+
+    new cdk.CfnOutput(this, 'OnStateChangeDlqArn', {
+      value: onStateChangeDlq.queueArn,
+      description: 'On-State-Change DLQ ARN',
+    });
 
     new cdk.CfnOutput(this, 'OnStateChangeFunctionArn', {
       value: onStateChangeFunction.functionArn,
