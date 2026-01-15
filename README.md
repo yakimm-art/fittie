@@ -2,17 +2,31 @@
 
 **The Agentic Fitness Companion that Flows with You**
 
-> A Dreamflow Buildathon submission by AWS Cloud Club Captain
+> Fitness should be frictionless. Scan. Train. Done.
 
-[![PWA](https://img.shields.io/badge/PWA-Enabled-blue)](https://developer.mozilla.org/en-US/docs/Web/Progressive_web_apps)
+[![PWA](https://img.shields.io/badge/PWA-Zero--Install-blue)](https://developer.mozilla.org/en-US/docs/Web/Progressive_web_apps)
 [![AWS](https://img.shields.io/badge/AWS-Powered-orange)](https://aws.amazon.com/)
 [![Dreamflow](https://img.shields.io/badge/Dreamflow-Agentic-purple)](https://dreamflow.ai/)
+
+---
+
+## 🔥 The "Fittie Anywhere" Philosophy
+
+> "Fittie lives at a URL. Scan a QR code at the gym and start your session instantly. We removed every barrier between intention and action."
+
+**Fittie isn't just an app—it's a presence.** It's the pinned tab reminding you to stretch after 90 minutes of coding. It's the same session continuing on your phone as you walk to the gym. It's voice coaching you through your last rep when your hands are on the barbell, not your screen.
+
+### Instant Access, Any Device
+
+As a PWA, Fittie works seamlessly across your laptop, phone, and tablet. No downloads required—just open and go. Add it to your home screen for a native app experience, or keep it in a browser tab. Your choice, your flow.
+
+---
 
 ## 📁 Project Structure
 
 ```
 fittie/
-├── frontend/          # Dreamflow PWA (Progressive Web App)
+├── frontend/          # Dreamflow PWA - "Instant Access Layer"
 ├── backend/           # AWS Lambda functions
 │   ├── src/          # TypeScript Lambda handlers
 │   └── package.json  # Backend dependencies
@@ -25,18 +39,10 @@ fittie/
 ├── docs/             # Documentation
 │   └── elevenlabs-integration.md
 ├── scripts/          # Utility scripts
-│   ├── setup-billing-alarms.sh
-│   ├── setup-github-secrets.sh
-│   ├── test-elevenlabs.sh
-│   ├── create-github-issues.sh
-│   └── create-github-labels.sh
 ├── .github/
 │   └── workflows/    # CI/CD pipelines
-│       └── ci.yml    # GitHub Actions workflow
 ├── package.json      # Monorepo root configuration
-├── .editorconfig     # Editor formatting rules
-├── .eslintrc.js      # ESLint configuration
-└── .prettierrc.js    # Prettier configuration
+└── openspec/         # Spec-driven development
 ```
 
 This is a **monorepo** using npm workspaces for managing multiple packages.
@@ -47,7 +53,7 @@ This is a **monorepo** using npm workspaces for managing multiple packages.
 
 **Fittie** is an autonomous, mobile-first Progressive Web App (PWA) that manages your physical health as a **dynamic system**. Unlike traditional fitness apps that offer static, one-size-fits-all routines, Fittie treats your biological state as real-time data input.
 
-Through an **agentic feedback loop**, Fittie observes human physical constraints—such as injury, fatigue, or environment—and autonomously reconfigures the application. When you report a physical "bottleneck" (e.g., *"My lower back is tight from coding"*), Fittie doesn't just suggest a fix; it **morphs the UI** and **re-engineers the workout logic** on the fly, transitioning from a high-intensity dashboard to a therapeutic recovery environment instantly.
+Through an **agentic feedback loop**, Fittie observes human physical constraints—such as injury, fatigue, or environment—and autonomously reconfigures the application. When you report a physical "bottleneck" (e.g., *"My lower back is tight from coding"*), Fittie doesn't just suggest a fix; it **morphs the UI** and **re-engineers the workout logic** on the fly.
 
 ### From Advice to Agency
 
@@ -57,50 +63,56 @@ Most fitness apps tell you what to do (**Advice**). Fittie changes the app to ad
 
 ## 🎯 Core Features & Functionalities
 
-### 1. 🎨 Agentic UI Morphing *(Dreamflow Exclusive)*
+### 1. 🎨 Morphic UI — The Agentic Showstopper
 
-**Dynamic Surface Adaptation**: The app interface physically changes based on the agent's reasoning.
+**The interface literally reshapes itself based on your physical and mental state.** Tell it you're exhausted, and the aggressive HIIT dashboard melts into a gentle recovery flow. The AI doesn't just respond—it *transforms*.
 
-- **Power Mode**: High-contrast, data-heavy UI for intense workouts
-- **Zen Mode**: Calming pastels, simplified interface for recovery
-- **Desk Mode**: Compact, non-intrusive for office stretches
-- **Gym Mode**: Large touch targets, progress-focused for active sessions
+| Mode | Trigger | Visual Character |
+|------|---------|------------------|
+| **Power Mode** | High energy, intense workout | High-contrast, data-heavy, aggressive reds/oranges |
+| **Zen Mode** | Fatigue, pain, stress detected | Calming pastels, simplified interface, blues/greens |
+| **Desk Mode** | Sedentary detection | Compact, non-intrusive, minimal |
+| **Gym Mode** | Active session | Large touch targets, progress-focused |
 
-**Example**: In "Power Mode," the UI is aggressive and metric-focused. If the agent detects high stress or pain, it triggers a **Visual State Transition** to "Zen Mode," emphasizing recovery movements with smooth animations (<200ms).
+**Visual Demo Idea**: Split-screen showing user saying "I'm tired" → UI animating from high-energy red/orange to calm blue/green with completely different workout suggestions. That's a "wow" moment.
 
 ---
 
-### 2. 🎙️ Hands-Free "Voice-to-Action" Coaching
+### 2. 🎙️ Voice Coach — Hands-Free Coaching
 
-**ElevenLabs Integration**: Fittie uses high-fidelity, empathetic voice synthesis to provide real-time coaching.
+**ElevenLabs Integration**: High-fidelity, empathetic voice synthesis for real-time coaching.
 
-- **Active Listening**: Talk to Fittie mid-workout. Say *"This is too hard"* or *"My knee is clicking"* and the agent pauses the timer, analyzes the input, and swaps the current exercise for a safer alternative.
-- **Contextual Responses**: Voice coaching adapts tone based on your state (encouraging in Power Mode, calming in Zen Mode)
+- **Active Listening**: Talk to Fittie mid-workout. Say *"This is too hard"* or *"My knee is clicking"* and the agent pauses, analyzes, and swaps exercises.
+- **Contextual Tone**: Encouraging in Power Mode, calming in Zen Mode
 - **Sub-500ms Latency**: Fast enough to feel like a real conversation
 
 ---
 
-### 3. 🧠 On-Demand Routine Generation
+### 3. 🧠 Soma-Logic Engine — On-Demand Routine Generation
 
-**Constraint-Aware Planning**: Fittie builds custom routines based on:
+**Constraint-Aware Planning** builds custom routines based on:
 - Available equipment (e.g., "chair only", "dumbbells + resistance bands")
 - Current physical state (e.g., "lower back pain", "energy level 2/5")
 - Time available (15-60 minutes)
 - Fitness goals (strength, cardio, mobility, recovery)
 
-**Biomechanical Validation**: Uses a RAG (Retrieval-Augmented Generation) system powered by **Amazon Bedrock** to ensure all suggested movements are anatomically sound and safe.
+**Biomechanical Validation**: RAG system powered by **Amazon Bedrock** ensures all movements are anatomically sound.
 
 **Generation Time**: <2 seconds for a complete validated routine
 
 ---
 
-### 4. 🔄 "Desk-to-Gym" PWA Sync
+### 4. 🔄 Seamless Sync — "Desk-to-Gym" Flow
 
-**Multi-Surface Context Switching**: As a web app, Fittie monitors your "Sedentary State" via your laptop.
+**Multi-Surface Context Switching**: This is where the web-first approach shines.
 
-- **Sedentary Monitoring**: Detects 60+ minutes of inactivity and proactively suggests "Micro-Flows" (2-5 minute desk stretches)
-- **Seamless Handoff**: Start on desktop, continue on mobile at the gym with full context preserved
-- **Offline-First**: Works without internet using service workers and local caching
+**The Workflow**:
+1. User has Fittie open in a pinned tab on their laptop ("Desk Mode")
+2. Detects 60+ minutes of inactivity → suggests "Micro-Flows" (2-5 minute desk stretches)
+3. User heads to the gym, opens the same URL on their phone
+4. **Context preserved**: Full workout generated based on gym equipment, addressing desk stiffness
+
+> "We chose a PWA because fitness should be frictionless. Users can scan a QR code at the gym and start their session instantly."
 
 ---
 
@@ -116,9 +128,7 @@ Every exercise is validated through a **triple-layer safety system**:
 
 ---
 
-### 6. 🔁 Dynamic Mid-Workout Adaptation
-
-**The Soma-Logic Framework**: Your biological state drives everything.
+### 6. 🔁 Morphic State — Dynamic Mid-Workout Adaptation
 
 ```
 State Change → Agent Reasoning → App Transformation
@@ -133,32 +143,29 @@ State Change → Agent Reasoning → App Transformation
 
 ---
 
-## 🛠️ Tech Stack
+## 🛠️ Tech Stack — With Marketing Names
 
-### Frontend
-| Technology | Purpose |
-|------------|---------|
-| **Dreamflow / Flutter** | Visual builder for agentic UI and PWA deployment |
-| **Service Workers** | Offline capability and asset caching |
-| **PWA** | Installable web app (no app store friction) |
+| Component | Implementation | Marketing Name |
+|-----------|----------------|----------------|
+| **Frontend** | Dreamflow (PWA) | **Instant Access Layer** |
+| **Identity** | AWS Amplify Auth | **Seamless Sync** |
+| **Logic** | .NET Web API / Lambda on AWS | **Soma-Logic Engine** |
+| **Voice** | ElevenLabs Web SDK | **Voice Coach** |
+| **State** | Lambda + DynamoDB | **Morphic State** |
+| **AI/RAG** | Amazon Bedrock (Claude 3) | **Biomechanical Validator** |
+| **CDN** | CloudFront | **Global Edge Delivery** |
 
-### Backend & Cloud (AWS)
+### Full AWS Integration (8+ Services)
+
 | Service | Purpose |
 |---------|---------|
 | **AWS Amplify** | Authentication, user management |
 | **AWS Lambda** | Serverless functions for state triggers |
 | **Amazon DynamoDB** | NoSQL database for state logs and workout history |
-| **Amazon Bedrock** | AI/LLM hosting for biomechanical knowledge base (Claude 3) |
+| **Amazon Bedrock** | AI/LLM hosting for biomechanical knowledge base |
 | **Amazon S3** | Static assets (workout videos, animations) |
 | **Amazon EventBridge** | Event-driven architecture for state changes |
 | **AWS CloudFront** | CDN for PWA delivery |
-
-### AI & Voice
-| Technology | Purpose |
-|------------|---------|
-| **Dreamflow Orchestrator** | Manages reasoning loop and UI state changes |
-| **ElevenLabs API** | High-fidelity voice synthesis for coaching |
-| **Web Speech API** | Fallback speech recognition |
 
 ---
 
@@ -174,7 +181,7 @@ S_{user} = { Pain, Energy, Equipment }
 f_{Agent}(S_{user}) → { Routine_{new}, Theme_{new}, Voice_{profile} }
 ```
 
-**When the User State ($S_{user}$) changes**—for instance, an increase in 'Pain'—**the Fittie Agent ($f_{Agent}$)** executes a real-time transformation of the app environment, ensuring your health 'flow' remains uninterrupted.
+**When the User State ($S_{user}$) changes**—for instance, an increase in 'Pain'—**the Fittie Agent ($f_{Agent}$)** executes a real-time transformation of the app environment.
 
 ---
 
@@ -192,19 +199,24 @@ f_{Agent}(S_{user}) → { Routine_{new}, Theme_{new}, Voice_{profile} }
 
 ## 🏆 The Winning Edge
 
-### 1. **Zero-Friction Deployment**
-By utilizing a mobile-first PWA, you bypass App Store hurdles—instant user onboarding via a **simple QR code**. Perfect for hackathon demos!
+### 1. **Zero-Friction Deployment** (The Killer Demo)
+Record your 60-second video showing someone scanning a QR code at a gym entrance, and within 3 seconds they're getting voice-coached through their first set. Instant access, instant value.
 
-### 2. **Engineering Depth**
+### 2. **The "Ambient Fitness Companion" Angle**
+> "Fittie isn't just an app—it's a presence."
+
+The .NET/Lambda backend maintains session state via AWS, so the transition from laptop → phone is seamless. The user never "logs in again"—they just... continue.
+
+### 3. **Morphic UI as the Star**
+The hackathon specifically rewards Dreamflow's agentic builder. The focus is on how intelligent the interface is—the UI that transforms based on your state.
+
+### 4. **Engineering Depth**
 - State machine architecture
 - Event-driven serverless design
 - RAG-based AI validation
 - Mathematical state transition model
 
-### 3. **Dreamflow Innovation**
-Showcases Dreamflow's agentic capabilities with real-world health impact—not just another CRUD app.
-
-### 4. **AWS Cloud Club Alignment**
+### 5. **AWS Cloud Club Alignment**
 Demonstrates comprehensive AWS service integration (8+ services) while staying within free tier limits.
 
 ---
@@ -213,28 +225,28 @@ Demonstrates comprehensive AWS service integration (8+ services) while staying w
 
 ```
 ┌─────────────────────────────────────────────────────────┐
-│              User Layer (PWA + Voice)                   │
+│         User Layer (PWA + Voice) - "Instant Access"     │
 └────────────────────┬────────────────────────────────────┘
                      │
 ┌────────────────────▼────────────────────────────────────┐
-│         Presentation Layer (Dreamflow)                  │
-│    UI Engine  │  Voice System  │  Workout Player        │
+│      Presentation Layer - "Morphic UI" (Dreamflow)      │
+│    UI Engine  │  Voice Coach  │  Workout Player         │
 └────────────────────┬────────────────────────────────────┘
                      │
 ┌────────────────────▼────────────────────────────────────┐
-│         Orchestration (Dreamflow Agent)                 │
+│      Orchestration - "Soma-Logic Engine" (Agent)        │
 │              Reasoning & State Machine                  │
 └────┬──────────────┬──────────────┬─────────────────────┘
      │              │              │
 ┌────▼────┐  ┌──────▼──────┐  ┌───▼──────────────────┐
-│Physical │  │  Routine    │  │  Biomechanical       │
+│Morphic  │  │  Routine    │  │  Biomechanical       │
 │State    │  │  Generator  │  │  Validator (RAG)     │
 │Manager  │  │             │  │  (Amazon Bedrock)    │
 └────┬────┘  └──────┬──────┘  └───┬──────────────────┘
      │              │              │
 ┌────▼──────────────▼──────────────▼────────────────────┐
-│         Data Layer (AWS)                               │
-│   DynamoDB  │  S3 Storage  │  Bedrock Knowledge Base │
+│      Data Layer - "Seamless Sync" (AWS)                │
+│   DynamoDB  │  S3 Storage  │  Bedrock Knowledge Base  │
 └────────────────────────────────────────────────────────┘
 ```
 
@@ -242,30 +254,36 @@ Demonstrates comprehensive AWS service integration (8+ services) while staying w
 
 ## 🎬 Demo Scenarios
 
-### Scenario 1: Pain-Triggered UI Morph
-1. User starts high-intensity workout (Power Mode)
-2. User says: *"My shoulder hurts"*
-3. **Instant transition** to Zen Mode (<200ms)
-4. Workout regenerates excluding overhead movements
-5. Voice coach provides empathetic guidance
+### Scenario 1: Instant Access
+1. User scans QR code at gym entrance
+2. Fittie loads instantly (PWA cached)
+3. Voice coach: *"Welcome back! Ready for leg day?"*
+4. **Instant access, instant value**
 
-### Scenario 2: Desk-to-Gym Handoff
-1. User works at desk for 90 minutes
+### Scenario 2: Morphic UI in Action
+1. User starts high-intensity workout (Power Mode - red/orange UI)
+2. User says: *"I'm exhausted"*
+3. **Instant visual transformation** to Zen Mode (<200ms)
+4. UI melts from aggressive to calming blues/greens
+5. Workout regenerates with recovery focus
+
+### Scenario 3: Desk-to-Gym Handoff
+1. User works at desk for 90 minutes (pinned tab)
 2. Desktop notification: *"Time for a stretch!"*
 3. User opens Fittie on phone at gym
 4. **Context preserved**: App suggests mobility warm-up addressing desk stiffness
 5. Full workout generated based on gym equipment
 
-### Scenario 3: Real-Time Exercise Swap
+### Scenario 4: Real-Time Safety Swap
 1. Mid-workout: User attempts burpees
-2. User says: *"This is too hard"*
-3. Agent analyzes energy level and workout progress
-4. Proposes regression: *"How about step-backs instead?"*
-5. User confirms, workout continues seamlessly
+2. User says: *"My knee is clicking"*
+3. Agent analyzes, excludes high-impact movements
+4. Voice coach: *"Let's protect that knee. How about step-backs instead?"*
+5. Workout continues seamlessly
 
 ---
 
-## � Getting Started
+## 🚀 Getting Started
 
 ### Prerequisites
 
@@ -312,8 +330,8 @@ cp .env.example .env
 
 | Variable | Description | Purpose |
 |----------|-------------|---------|
-| `ELEVENLABS_API_KEY` | ElevenLabs API key | Voice synthesis for coaching |
-| `DREAMFLOW_API_KEY` | Dreamflow API key | Agentic UI orchestration |
+| `ELEVENLABS_API_KEY` | ElevenLabs API key | Voice Coach synthesis |
+| `DREAMFLOW_API_KEY` | Dreamflow API key | Morphic UI orchestration |
 
 Validate your environment configuration:
 ```bash
@@ -331,54 +349,31 @@ npm test
 
 For offline development and testing:
 
-1. **Enable Docker in WSL** (if not already done):
-   - Install Docker Desktop
-   - Enable WSL 2 integration in Docker Desktop settings
-   - Restart your terminal
-
-2. **Start local DynamoDB**:
 ```bash
+# Start local DynamoDB + Admin UI
 ./scripts/local-dev.sh start
-```
 
-This will:
-- Start DynamoDB Local on `http://localhost:8000`
-- Start DynamoDB Admin UI on `http://localhost:8001`
-- Create all three tables with sample data
-
-3. **Use local environment**:
-```bash
-# Source local environment variables
+# Use local environment
 export $(cat .env.local | xargs)
-
-# Run your backend with local DynamoDB
 npm run dev:backend
-```
 
-4. **Stop local services**:
-```bash
+# Stop local services
 ./scripts/local-dev.sh stop
 ```
 
 #### Development Commands
 
 ```bash
-# Run backend in watch mode
-npm run dev:backend
-
-# Run frontend (Dreamflow)
-npm run dev:frontend
-
-# Lint and format code
-npm run lint:fix
-npm run format
+npm run dev:backend    # Run backend in watch mode
+npm run dev:frontend   # Run frontend (Dreamflow)
+npm run lint:fix       # Lint and fix code
+npm run format         # Format code
 ```
 
 ### Deployment
 
 ```bash
-# Deploy infrastructure with CDK
-npm run deploy:infra
+npm run deploy:infra   # Deploy infrastructure with CDK
 ```
 
 ---
@@ -395,7 +390,7 @@ npm run deploy:infra
 
 - **Wearable Integration**: Real-time heart rate and movement tracking
 - **Social Features**: Workout sharing and challenges
-- **Multi-Language Support**: Voice coaching in Spanish, French, Mandarin
+- **Multi-Language Voice Coach**: Spanish, French, Mandarin support
 - **Physical Therapy Network**: Connect with certified professionals
 - **Advanced Form Analysis**: Computer vision for real-time correction
 
@@ -425,4 +420,4 @@ This project is developed for the Dreamflow Buildathon.
 
 ---
 
-**⚡ Ready to transform fitness from advice to agency? Let's build Fittie! 🚀**
+**⚡ Scan. Train. Done. Welcome to Fittie. 🚀**
