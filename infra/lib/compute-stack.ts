@@ -3,10 +3,15 @@ import { Construct } from 'constructs';
 import * as lambda from 'aws-cdk-lib/aws-lambda';
 import * as apigateway from 'aws-cdk-lib/aws-apigateway';
 import * as iam from 'aws-cdk-lib/aws-iam';
+import * as events from 'aws-cdk-lib/aws-events';
+import * as dynamodb from 'aws-cdk-lib/aws-dynamodb';
+import * as eventsources from 'aws-cdk-lib/aws-lambda-event-sources';
 import * as path from 'path';
 
 interface ComputeStackProps extends cdk.StackProps {
   stateTableName: string;
+  stateTableArn: string;
+  stateTableStreamArn: string;
   historyTableName: string;
   exerciseTableName: string;
   userPoolId: string;
@@ -26,6 +31,15 @@ export class ComputeStack extends cdk.Stack {
       handler: 'index.handler',
       code: lambda.Code.fromAsset(path.join(__dirname, '../../backend/functions/physical-state-manager'), {
         bundling: {
+          local: {
+            tryBundle(outputDir: string) {
+              const execSync = require('child_process').execSync;
+              const funcDir = path.join(__dirname, '../../backend/functions/physical-state-manager');
+              execSync(`cp -r ${funcDir}/dist/* ${outputDir}/`);
+              execSync(`cp -r ${funcDir}/node_modules ${outputDir}/`);
+              return true;
+            },
+          },
           image: lambda.Runtime.NODEJS_20_X.bundlingImage,
           command: [
             'bash', '-c',
@@ -93,6 +107,73 @@ export class ComputeStack extends cdk.Stack {
     new cdk.CfnOutput(this, 'PhysicalStateFunctionArn', {
       value: physicalStateFunction.functionArn,
       description: 'Physical State Manager Lambda ARN',
+    });
+
+    // EventBridge Event Bus for Fittie events
+    const eventBus = new events.EventBus(this, 'FittieEventBus', {
+      eventBusName: 'fittie-events',
+    });
+
+    // On-State-Change Lambda - processes DynamoDB stream events
+    const onStateChangeFunction = new lambda.Function(this, 'OnStateChangeFunction', {
+      functionName: 'fittie-on-state-change',
+      runtime: lambda.Runtime.NODEJS_20_X,
+      handler: 'index.handler',
+      code: lambda.Code.fromAsset(path.join(__dirname, '../../backend/functions/on-state-change'), {
+        bundling: {
+          local: {
+            tryBundle(outputDir: string) {
+              const execSync = require('child_process').execSync;
+              const funcDir = path.join(__dirname, '../../backend/functions/on-state-change');
+              execSync(`cp -r ${funcDir}/dist/* ${outputDir}/`);
+              execSync(`cp -r ${funcDir}/node_modules ${outputDir}/`);
+              return true;
+            },
+          },
+          image: lambda.Runtime.NODEJS_20_X.bundlingImage,
+          command: [
+            'bash', '-c',
+            'npm install && npm run build && cp -r dist/* /asset-output/ && cp -r node_modules /asset-output/'
+          ],
+        },
+      }),
+      environment: {
+        EVENT_BUS_NAME: eventBus.eventBusName,
+      },
+      timeout: cdk.Duration.seconds(30),
+      memorySize: 256,
+    });
+
+    // Grant EventBridge permissions
+    eventBus.grantPutEventsTo(onStateChangeFunction);
+
+    // Import the DynamoDB table to add stream trigger
+    const stateTable = dynamodb.Table.fromTableAttributes(this, 'ImportedStateTable', {
+      tableArn: props.stateTableArn,
+      tableStreamArn: props.stateTableStreamArn,
+    });
+
+    // Grant stream read permissions
+    stateTable.grantStreamRead(onStateChangeFunction);
+
+    // Add DynamoDB Stream as event source
+    onStateChangeFunction.addEventSource(
+      new eventsources.DynamoEventSource(stateTable, {
+        startingPosition: lambda.StartingPosition.LATEST,
+        batchSize: 10,
+        retryAttempts: 3,
+      })
+    );
+
+    new cdk.CfnOutput(this, 'OnStateChangeFunctionArn', {
+      value: onStateChangeFunction.functionArn,
+      description: 'On-State-Change Lambda ARN',
+    });
+
+    new cdk.CfnOutput(this, 'EventBusArn', {
+      value: eventBus.eventBusArn,
+      description: 'Fittie EventBridge Bus ARN',
+      exportName: 'FittieEventBusArn',
     });
   }
 }

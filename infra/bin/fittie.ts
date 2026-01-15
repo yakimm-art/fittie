@@ -38,6 +38,8 @@ const computeStack = new ComputeStack(app, 'FittieComputeStack', {
   env,
   description: 'Fittie Compute - Lambda Functions',
   stateTableName: dataStack.physicalStateTable.tableName,
+  stateTableArn: dataStack.physicalStateTable.tableArn,
+  stateTableStreamArn: dataStack.physicalStateTable.tableStreamArn!,
   historyTableName: dataStack.workoutHistoryTable.tableName,
   exerciseTableName: dataStack.exerciseKnowledgeBaseTable.tableName,
   userPoolId: authStack.userPool.userPoolId,
