@@ -1,0 +1,215 @@
+.talking-mascot {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+}
+
+.mascot-body {
+  position: relative;
+  filter: drop-shadow(0 6px 20px rgba(255, 105, 180, 0.3));
+}
+
+/* Bounce animation */
+.talking-mascot.animate .mascot-body {
+  animation: mascot-bounce 2.5s ease-in-out infinite;
+}
+
+/* Speaking state - more energetic bounce */
+.talking-mascot.speaking .mascot-body {
+  animation: mascot-speak-bounce 0.8s ease-in-out infinite;
+}
+
+/* Bow wiggle */
+.bow {
+  transform-origin: center;
+}
+
+.talking-mascot.animate .bow {
+  animation: bow-wiggle 3s ease-in-out infinite;
+}
+
+/* Arm animations */
+.arm-left {
+  transform-origin: 65px 210px;
+  animation: arm-curl 2s ease-in-out infinite;
+}
+
+.arm-right {
+  transform-origin: 175px 210px;
+}
+
+.talking-mascot.speaking .arm-right {
+  animation: arm-wave 0.6s ease-in-out infinite;
+}
+
+/* Eye blink */
+.eyes {
+  animation: eye-blink 4s ease-in-out infinite;
+}
+
+.talking-mascot.speaking .eyes {
+  animation: none;
+}
+
+/* Mouth animation for speaking */
+.mouth {
+  transition: all 0.1s ease;
+}
+
+.mouth.open ellipse {
+  animation: mouth-move 0.15s ease-in-out infinite alternate;
+}
+
+/* Sparkles */
+.sparkles text {
+  animation: sparkle-float 1.5s ease-in-out infinite;
+}
+
+.sparkles text:nth-child(2) {
+  animation-delay: 0.3s;
+}
+
+.sparkles text:nth-child(3) {
+  animation-delay: 0.6s;
+}
+
+.sparkles text:nth-child(4) {
+  animation-delay: 0.9s;
+}
+
+/* Keyframes */
+@keyframes mascot-bounce {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-10px); }
+}
+
+@keyframes mascot-speak-bounce {
+  0%, 100% { transform: translateY(0) scale(1); }
+  50% { transform: translateY(-5px) scale(1.02); }
+}
+
+@keyframes bow-wiggle {
+  0%, 100% { transform: rotate(0deg); }
+  25% { transform: rotate(3deg); }
+  75% { transform: rotate(-3deg); }
+}
+
+@keyframes arm-curl {
+  0%, 100% { transform: rotate(0deg); }
+  50% { transform: rotate(-12deg); }
+}
+
+@keyframes arm-wave {
+  0%, 100% { transform: rotate(0deg); }
+  50% { transform: rotate(8deg); }
+}
+
+@keyframes eye-blink {
+  0%, 45%, 55%, 100% { opacity: 1; }
+  50% { opacity: 0; }
+}
+
+@keyframes mouth-move {
+  0% { ry: 6px; }
+  100% { ry: 10px; }
+}
+
+@keyframes sparkle-float {
+  0%, 100% { 
+    opacity: 1; 
+    transform: translateY(0) scale(1); 
+  }
+  50% { 
+    opacity: 0.6; 
+    transform: translateY(-5px) scale(1.2); 
+  }
+}
+
+/* Speech bubble */
+.speech-bubble {
+  position: relative;
+  background: linear-gradient(135deg, #ffffff 0%, #fff5f7 100%);
+  padding: 16px 24px;
+  border-radius: 24px;
+  box-shadow: 
+    0 4px 20px rgba(255, 105, 180, 0.2),
+    0 0 0 2px #FFB6C1;
+  max-width: 280px;
+  text-align: center;
+  animation: bubble-appear 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.bubble-text {
+  font-weight: 600;
+  font-size: 15px;
+  color: #4a3728;
+  line-height: 1.4;
+}
+
+.bubble-pointer {
+  position: absolute;
+  top: -12px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 0;
+  height: 0;
+  border-left: 14px solid transparent;
+  border-right: 14px solid transparent;
+  border-bottom: 14px solid #FFB6C1;
+}
+
+.bubble-pointer::after {
+  content: '';
+  position: absolute;
+  top: 3px;
+  left: -11px;
+  width: 0;
+  height: 0;
+  border-left: 11px solid transparent;
+  border-right: 11px solid transparent;
+  border-bottom: 11px solid white;
+}
+
+@keyframes bubble-appear {
+  0% { 
+    transform: scale(0.8) translateY(10px); 
+    opacity: 0; 
+  }
+  50% { 
+    transform: scale(1.05) translateY(-2px); 
+  }
+  100% { 
+    transform: scale(1) translateY(0); 
+    opacity: 1; 
+  }
+}
+
+/* Size variations */
+.talking-mascot-sm .speech-bubble {
+  font-size: 12px;
+  padding: 10px 16px;
+  max-width: 180px;
+}
+
+.talking-mascot-lg .speech-bubble {
+  font-size: 16px;
+  padding: 18px 28px;
+  max-width: 320px;
+}
+
+.talking-mascot-xl .speech-bubble {
+  font-size: 18px;
+  padding: 20px 32px;
+  max-width: 380px;
+}
+
+/* Speaking indicator */
+.talking-mascot.speaking .speech-bubble {
+  animation: bubble-pulse 1s ease-in-out infinite;
+}
+
+@keyframes bubble-pulse {
+  0%, 100% { box-shadow: 0 4px 20px rgba(255, 105, 180, 0.2), 0 0 0 2px #FFB6C1; }
+  50% { box-shadow: 0 4px 25px rgba(255, 105, 180, 0.4), 0 0 0 3px #FF69B4; }
+}

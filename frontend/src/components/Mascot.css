@@ -1,0 +1,182 @@
+.mascot-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+}
+
+.mascot-wrapper {
+  position: relative;
+}
+
+.mascot-container.animate .mascot-wrapper {
+  animation: bounce 2s ease-in-out infinite;
+}
+
+.mascot-container.speaking .mascot-wrapper {
+  animation: bounce 1s ease-in-out infinite;
+}
+
+.mascot-svg {
+  display: block;
+}
+
+/* Sizes - adjusted for new 200x240 viewBox ratio */
+.mascot-sm .mascot-svg { width: 80px; height: 96px; }
+.mascot-md .mascot-svg { width: 140px; height: 168px; }
+.mascot-lg .mascot-svg { width: 180px; height: 216px; }
+.mascot-xl .mascot-svg { width: 240px; height: 288px; }
+
+/* Sparkle animation */
+.sparkle {
+  animation: sparkle 1.5s ease-in-out infinite;
+}
+
+@keyframes sparkle {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.3; transform: scale(0.8); }
+}
+
+@keyframes bounce {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-8px); }
+}
+
+/* Bow wiggle on hover */
+.mascot-container:hover .bow {
+  animation: bowWiggle 0.5s ease-in-out;
+}
+
+@keyframes bowWiggle {
+  0%, 100% { transform: translate(100px, 32px) rotate(0deg); }
+  25% { transform: translate(100px, 32px) rotate(-5deg); }
+  75% { transform: translate(100px, 32px) rotate(5deg); }
+}
+
+/* Arm animations */
+.arm-left {
+  transform-origin: 58px 175px;
+  animation: armPump 2s ease-in-out infinite;
+}
+
+/* Raised arm animation */
+.mascot-container.arm-raised .arm-left {
+  transform-origin: 45px 160px;
+  animation: armRaise 1s ease-in-out infinite;
+}
+
+@keyframes armRaise {
+  0%, 100% { transform: rotate(0deg); }
+  50% { transform: rotate(-8deg); }
+}
+
+@keyframes armPump {
+  0%, 100% { transform: rotate(0deg); }
+  50% { transform: rotate(-10deg); }
+}
+
+.mascot-container.speaking .arm-left {
+  animation: armPump 0.8s ease-in-out infinite;
+}
+
+/* Headband sweat drop animation */
+.sweat-drop {
+  animation: sweatDrop 2s ease-in-out infinite;
+}
+
+@keyframes sweatDrop {
+  0%, 100% { transform: translateY(0); opacity: 0.8; }
+  50% { transform: translateY(5px); opacity: 0.4; }
+}
+
+/* Eye blink animation */
+.mascot-container.animate .eyes-group {
+  animation: blink 4s ease-in-out infinite;
+}
+
+@keyframes blink {
+  0%, 45%, 55%, 100% { opacity: 1; }
+  50% { opacity: 0.1; }
+}
+
+/* Mouth animation for speaking */
+.mouth-path {
+  transition: d 0.1s ease-out;
+}
+
+.mascot-container.speaking .mouth-path {
+  animation: mouthMove 0.15s ease-in-out infinite alternate;
+}
+
+@keyframes mouthMove {
+  0% { transform: scaleY(0.8); }
+  100% { transform: scaleY(1.2); }
+}
+
+/* Speech bubble */
+.mascot-bubble {
+  position: relative;
+  background: white;
+  padding: 12px 20px;
+  border-radius: 20px;
+  box-shadow: 0 4px 15px rgba(255, 107, 157, 0.2);
+  border: 2px solid var(--primary-light, #FFB6C1);
+  max-width: 220px;
+  text-align: center;
+  font-weight: 600;
+  font-size: 14px;
+  color: var(--text-primary, #333);
+  animation: pop 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.mascot-container.speaking .mascot-bubble {
+  animation: pop 0.4s cubic-bezier(0.4, 0, 0.2, 1), pulse 1s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { box-shadow: 0 4px 15px rgba(255, 107, 157, 0.2); }
+  50% { box-shadow: 0 4px 25px rgba(255, 107, 157, 0.4); }
+}
+
+.bubble-tail {
+  position: absolute;
+  top: -10px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 0;
+  height: 0;
+  border-left: 10px solid transparent;
+  border-right: 10px solid transparent;
+  border-bottom: 10px solid white;
+}
+
+.bubble-tail::before {
+  content: '';
+  position: absolute;
+  top: -3px;
+  left: -12px;
+  width: 0;
+  height: 0;
+  border-left: 12px solid transparent;
+  border-right: 12px solid transparent;
+  border-bottom: 12px solid var(--primary-light, #FFB6C1);
+  z-index: -1;
+}
+
+@keyframes pop {
+  0% { transform: scale(0.8); opacity: 0; }
+  50% { transform: scale(1.05); }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+/* Ear wiggle on excited mood */
+.mascot-container.animate .mascot-svg ellipse:nth-child(1),
+.mascot-container.animate .mascot-svg ellipse:nth-child(3) {
+  animation: earWiggle 3s ease-in-out infinite;
+}
+
+@keyframes earWiggle {
+  0%, 100% { transform: rotate(0deg); }
+  25% { transform: rotate(-2deg); }
+  75% { transform: rotate(2deg); }
+}

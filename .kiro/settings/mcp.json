@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "example-server": {
+      "command": "uvx",
+      "args": ["your-mcp-server@latest"],
+      "env": {},
+      "disabled": true,
+      "autoApprove": []
+    }
+  }
+}
