@@ -193,5 +193,59 @@ export class ComputeStack extends cdk.Stack {
       description: 'Fittie EventBridge Bus ARN',
       exportName: 'FittieEventBusArn',
     });
+
+    // Routine Generator Lambda (Soma-Logic Engine)
+    const routineGeneratorFunction = new lambda.Function(this, 'RoutineGeneratorFunction', {
+      functionName: 'fittie-routine-generator',
+      runtime: lambda.Runtime.NODEJS_20_X,
+      handler: 'index.handler',
+      code: lambda.Code.fromAsset(path.join(__dirname, '../../backend/functions/routine-generator'), {
+        bundling: {
+          local: {
+            tryBundle(outputDir: string) {
+              const execSync = require('child_process').execSync;
+              const funcDir = path.join(__dirname, '../../backend/functions/routine-generator');
+              execSync(`cp -r ${funcDir}/dist/* ${outputDir}/`);
+              execSync(`cp -r ${funcDir}/node_modules ${outputDir}/`);
+              return true;
+            },
+          },
+          image: lambda.Runtime.NODEJS_20_X.bundlingImage,
+          command: [
+            'bash', '-c',
+            'npm install && npm run build && cp -r dist/* /asset-output/ && cp -r node_modules /asset-output/'
+          ],
+        },
+      }),
+      environment: {
+        STATE_TABLE: props.stateTableName,
+        EXERCISE_TABLE: props.exerciseTableName,
+      },
+      timeout: cdk.Duration.seconds(30),
+      memorySize: 512,
+    });
+
+    // Grant DynamoDB permissions for routine generator
+    routineGeneratorFunction.addToRolePolicy(new iam.PolicyStatement({
+      actions: [
+        'dynamodb:Query',
+        'dynamodb:Scan',
+        'dynamodb:GetItem',
+      ],
+      resources: [
+        `arn:aws:dynamodb:${this.region}:${this.account}:table/${props.stateTableName}`,
+        `arn:aws:dynamodb:${this.region}:${this.account}:table/${props.exerciseTableName}`,
+      ],
+    }));
+
+    // Create /routine resource and POST /routine/generate endpoint
+    const routineResource = this.api.root.addResource('routine');
+    const generateResource = routineResource.addResource('generate');
+    generateResource.addMethod('POST', new apigateway.LambdaIntegration(routineGeneratorFunction));
+
+    new cdk.CfnOutput(this, 'RoutineGeneratorFunctionArn', {
+      value: routineGeneratorFunction.functionArn,
+      description: 'Routine Generator Lambda ARN',
+    });
   }
 }
