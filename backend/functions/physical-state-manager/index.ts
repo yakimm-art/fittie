@@ -8,7 +8,7 @@
  */
 
 import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
-import { PhysicalStateRepository } from './repository';
+import { PhysicalStateRepository, RepositoryError } from './repository';
 import { PhysicalStateService } from './service';
 import { validateUpdateStateRequest, validateStateHistoryQuery, ValidationError } from './validators';
 import { ApiResponse } from './types';
@@ -82,6 +82,16 @@ async function handleUpdateState(event: APIGatewayProxyEvent): Promise<APIGatewa
         },
       });
     }
+
+    if (error instanceof RepositoryError) {
+      return createResponse(503, {
+        success: false,
+        error: {
+          message: 'Database operation failed',
+          code: 'DATABASE_ERROR',
+        },
+      });
+    }
     
     return createResponse(500, {
       success: false,
@@ -118,6 +128,16 @@ async function handleGetLatestState(event: APIGatewayProxyEvent): Promise<APIGat
     });
   } catch (error) {
     console.error('Error getting latest state:', error);
+
+    if (error instanceof RepositoryError) {
+      return createResponse(503, {
+        success: false,
+        error: {
+          message: 'Database operation failed',
+          code: 'DATABASE_ERROR',
+        },
+      });
+    }
     
     return createResponse(500, {
       success: false,
@@ -155,6 +175,16 @@ async function handleGetStateHistory(event: APIGatewayProxyEvent): Promise<APIGa
         error: {
           message: error.message,
           code: 'VALIDATION_ERROR',
+        },
+      });
+    }
+
+    if (error instanceof RepositoryError) {
+      return createResponse(503, {
+        success: false,
+        error: {
+          message: 'Database operation failed',
+          code: 'DATABASE_ERROR',
         },
       });
     }
