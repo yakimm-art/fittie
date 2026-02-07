@@ -3,10 +3,10 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:audioplayers/audioplayers.dart';
 import '../services/firebase_service.dart';
-import '../widgets/kawaii_bear.dart'; 
-import 'verify_email_page.dart'; // Make sure this import exists
+import '../widgets/kawaii_bear.dart';
+import 'verify_email_page.dart';
 
-// --- THEME ---
+// --- THEME (exported — used by other pages) ---
 class AppColors {
   static const bgCream = Color(0xFFFDFBF7);
   static const primaryTeal = Color(0xFF38B2AC);
@@ -15,6 +15,19 @@ class AppColors {
   static const borderBlack = Color(0xFF1F2937);
   static const errorRed = Color(0xFFE53E3E);
 }
+
+// Step accent colors
+const _stepColors = [
+  AppColors.primaryTeal,
+  Color(0xFF805AD5), // purple
+  Color(0xFFE5793A), // orange
+  Color(0xFFECC94B), // yellow
+  Color(0xFFED64A6), // pink
+];
+
+const _stepEmojis = ["👋", "📊", "🧘", "🎯", "✨"];
+
+const _stepLabels = ["Account", "Baseline", "Lifestyle", "Goals", "Extras"];
 
 class SignUpPage extends StatefulWidget {
   const SignUpPage({super.key});
@@ -27,29 +40,28 @@ class _SignUpPageState extends State<SignUpPage> with TickerProviderStateMixin {
   final _firebaseService = FirebaseService();
   final PageController _pageController = PageController();
   final AudioPlayer _audioPlayer = AudioPlayer();
-  
-  // Animation Controllers
+
   late AnimationController _mascotCtrl;
   late AnimationController _bubbleCtrl;
+  late AnimationController _progressCtrl;
+  late AnimationController _cardSlideCtrl;
+  late AnimationController _pulseCtrl;
 
   int _currentStep = 0;
   bool _isLoading = false;
   bool _isTalking = false;
 
-  // --- FORM KEYS ---
   final _step1Key = GlobalKey<FormState>();
   final _step2Key = GlobalKey<FormState>();
   final _step3Key = GlobalKey<FormState>();
   final _step4Key = GlobalKey<FormState>();
-  // 🟢 NEW: Key for Step 5
   final _step5Key = GlobalKey<FormState>();
 
-  // --- CONTROLLERS ---
   final _nameCtrl = TextEditingController();
   final _emailCtrl = TextEditingController();
   final _passCtrl = TextEditingController();
-  final _confirmPassCtrl = TextEditingController(); 
-  
+  final _confirmPassCtrl = TextEditingController();
+
   bool _obscurePass = true;
   bool _obscureConfirm = true;
 
@@ -60,43 +72,92 @@ class _SignUpPageState extends State<SignUpPage> with TickerProviderStateMixin {
   final _equipmentCtrl = TextEditingController();
   final _injuriesCtrl = TextEditingController();
   final _goalsCtrl = TextEditingController();
-  
-  // 🟢 NEW: Controller for open-ended text
   final _extraNotesCtrl = TextEditingController();
 
-  // --- DATA ---
-  double _stressLevel = 50; 
-  String _activityLevel = 'Sedentary'; 
-  final List<String> _activityLevels = ['Sedentary', 'Lightly Active', 'Very Active'];
+  double _stressLevel = 50;
+  String _activityLevel = 'Sedentary';
+  final List<String> _activityLevels = [
+    'Sedentary',
+    'Lightly Active',
+    'Very Active'
+  ];
 
   final Set<String> _selectedEquipment = {};
   final Set<String> _selectedInjuries = {};
   final Set<String> _selectedGoals = {};
 
-  final List<String> _equipmentOptions = ['None (Bodyweight)', 'Dumbbells', 'Yoga Mat', 'Resistance Bands', 'Pull-up Bar', 'Kettlebell', 'Full Gym'];
-  final List<String> _injuryOptions = ['None', 'Back Pain', 'Knee Pain', 'Shoulder Issues', 'Wrist Pain', 'Ankle Injury'];
-  final List<String> _goalOptions = ['Lose Weight', 'Build Muscle', 'Flexibility', 'Endurance', 'Strength', 'Better Posture'];
-
-  // 🟢 UPDATED: Added 5th step
-  final List<Map<String, String>> _stepsData = [
-    {"text": "Hi! I'm Fittie! Let's get your ID set up so we can start!", "audio": "signup_intro.mp3"},
-    {"text": "Okay, Science time! I need your stats to calculate the perfect load.", "audio": "signup_step1.mp3"},
-    {"text": "Help me calibrate! How stressed or active are you usually?", "audio": "signup_step2.mp3"},
-    {"text": "Almost there! Tap your gear and goals so I can build your plan.", "audio": "signup_step3.mp3"},
-    {"text": "Anything else? Tell me your preferences or special requests!", "audio": "signup_step4.mp3"}
+  final List<String> _equipmentOptions = [
+    'None (Bodyweight)',
+    'Dumbbells',
+    'Yoga Mat',
+    'Resistance Bands',
+    'Pull-up Bar',
+    'Kettlebell',
+    'Full Gym'
   ];
+  final List<String> _injuryOptions = [
+    'None',
+    'Back Pain',
+    'Knee Pain',
+    'Shoulder Issues',
+    'Wrist Pain',
+    'Ankle Injury'
+  ];
+  final List<String> _goalOptions = [
+    'Lose Weight',
+    'Build Muscle',
+    'Flexibility',
+    'Endurance',
+    'Strength',
+    'Better Posture'
+  ];
+
+  final List<Map<String, String>> _stepsData = [
+    {
+      "text": "Hi! I'm Fittie! Let's get your ID set up so we can start!",
+      "audio": "signup_intro.mp3"
+    },
+    {
+      "text":
+          "Okay, Science time! I need your stats to calculate the perfect load.",
+      "audio": "signup_step1.mp3"
+    },
+    {
+      "text": "Help me calibrate! How stressed or active are you usually?",
+      "audio": "signup_step2.mp3"
+    },
+    {
+      "text": "Almost there! Tap your gear and goals so I can build your plan.",
+      "audio": "signup_step3.mp3"
+    },
+    {
+      "text": "Anything else? Tell me your preferences or special requests!",
+      "audio": "signup_step4.mp3"
+    }
+  ];
+
+  Color get _accent => _stepColors[_currentStep.clamp(0, 4)];
 
   @override
   void initState() {
     super.initState();
-    
-    // Setup Animations
-    _mascotCtrl = AnimationController(vsync: this, duration: const Duration(milliseconds: 800));
-    _bubbleCtrl = AnimationController(vsync: this, duration: const Duration(milliseconds: 400));
-    
-    // Start Entrance
+    _mascotCtrl = AnimationController(
+        vsync: this, duration: const Duration(milliseconds: 900));
+    _bubbleCtrl = AnimationController(
+        vsync: this, duration: const Duration(milliseconds: 500));
+    _progressCtrl = AnimationController(
+        vsync: this, duration: const Duration(milliseconds: 600));
+    _cardSlideCtrl = AnimationController(
+        vsync: this, duration: const Duration(milliseconds: 700));
+    _pulseCtrl = AnimationController(
+        vsync: this, duration: const Duration(milliseconds: 1200))
+      ..repeat(reverse: true);
+
     _mascotCtrl.forward();
-    _bubbleCtrl.forward();
+    Future.delayed(const Duration(milliseconds: 300), () {
+      if (mounted) _bubbleCtrl.forward();
+    });
+    _cardSlideCtrl.forward();
 
     if (_stepsData.isNotEmpty) {
       _playMascotAudio(_stepsData[0]['audio']!);
@@ -109,6 +170,9 @@ class _SignUpPageState extends State<SignUpPage> with TickerProviderStateMixin {
     _audioPlayer.dispose();
     _mascotCtrl.dispose();
     _bubbleCtrl.dispose();
+    _progressCtrl.dispose();
+    _cardSlideCtrl.dispose();
+    _pulseCtrl.dispose();
     _nameCtrl.dispose();
     _emailCtrl.dispose();
     _passCtrl.dispose();
@@ -128,16 +192,13 @@ class _SignUpPageState extends State<SignUpPage> with TickerProviderStateMixin {
   void _playMascotAudio(String fileName) async {
     await _audioPlayer.stop();
     if (!mounted) return;
-    setState(() => _isTalking = true); 
-    
-    // Pop the bubble animation
+    setState(() => _isTalking = true);
     _bubbleCtrl.reset();
     _bubbleCtrl.forward();
-
     try {
       await _audioPlayer.play(AssetSource('audio/$fileName'));
     } catch (e) {
-      setState(() => _isTalking = false);
+      if (mounted) setState(() => _isTalking = false);
     }
     _audioPlayer.onPlayerComplete.listen((_) {
       if (mounted) setState(() => _isTalking = false);
@@ -148,19 +209,28 @@ class _SignUpPageState extends State<SignUpPage> with TickerProviderStateMixin {
     if (_currentStep == 0) {
       if (!_step1Key.currentState!.validate()) return;
       if (_passCtrl.text != _confirmPassCtrl.text) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Passwords do not match!"), backgroundColor: AppColors.errorRed));
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+            content: Text("Passwords do not match!"),
+            backgroundColor: AppColors.errorRed));
         return;
       }
     }
     if (_currentStep == 1 && !_step2Key.currentState!.validate()) return;
-    if (_currentStep == 3 && (_selectedGoals.isEmpty)) {
-       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Please select at least one goal!"), backgroundColor: AppColors.textDark));
-       return;
+    if (_currentStep == 3 && _selectedGoals.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text("Please select at least one goal!"),
+          backgroundColor: AppColors.textDark));
+      return;
     }
 
-    _pageController.nextPage(duration: const Duration(milliseconds: 600), curve: Curves.easeInOutCubicEmphasized);
-    setState(() => _currentStep++);
+    _pageController.nextPage(
+        duration: const Duration(milliseconds: 600),
+        curve: Curves.easeInOutCubicEmphasized);
 
+    _progressCtrl.reset();
+    _progressCtrl.forward();
+
+    setState(() => _currentStep++);
     if (_currentStep < _stepsData.length) {
       _playMascotAudio(_stepsData[_currentStep]['audio']!);
     }
@@ -168,7 +238,11 @@ class _SignUpPageState extends State<SignUpPage> with TickerProviderStateMixin {
 
   void _prevStep() {
     if (_currentStep > 0) {
-      _pageController.previousPage(duration: const Duration(milliseconds: 600), curve: Curves.easeInOutCubicEmphasized);
+      _pageController.previousPage(
+          duration: const Duration(milliseconds: 600),
+          curve: Curves.easeInOutCubicEmphasized);
+      _progressCtrl.reset();
+      _progressCtrl.forward();
       setState(() => _currentStep--);
       _playMascotAudio(_stepsData[_currentStep]['audio']!);
     } else {
@@ -179,294 +253,370 @@ class _SignUpPageState extends State<SignUpPage> with TickerProviderStateMixin {
   void _handleFinalSubmit() async {
     setState(() => _isLoading = true);
     try {
-      // 1. Create User
       final user = await _firebaseService.signUp(
         email: _emailCtrl.text.trim(),
         password: _passCtrl.text.trim(),
       );
-
       if (user != null) {
-        // 2. Save Data (Calibrate)
         await _firebaseService.calibrateUser(
           uid: user.uid,
           name: _nameCtrl.text.trim(),
-          age: int.tryParse(_ageCtrl.text.trim()) ?? 0, 
-          weight: _weightCtrl.text.trim(), 
+          age: int.tryParse(_ageCtrl.text.trim()) ?? 0,
+          weight: _weightCtrl.text.trim(),
           height: _heightCtrl.text.trim(),
-          stressBaseline: _stressLevel, 
+          stressBaseline: _stressLevel,
           activityLevel: _activityLevel,
-          equipment: _selectedEquipment.join(', '), 
+          equipment: _selectedEquipment.join(', '),
           injuries: _selectedInjuries.join(', '),
           specificGoals: _selectedGoals.join(', '),
-          
-          // 🟢 NEW: Pass the extra notes. 
-          // ⚠️ NOTE: Update your FirebaseService.calibrateUser to accept this named parameter!
           extraNotes: _extraNotesCtrl.text.trim(),
         );
-
         if (mounted) {
           Navigator.pushAndRemoveUntil(
             context,
-            MaterialPageRoute(builder: (_) => const VerifyEmailPage()), 
+            MaterialPageRoute(builder: (_) => const VerifyEmailPage()),
             (route) => false,
           );
         }
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text("Error: $e"), backgroundColor: AppColors.errorRed)
-        );
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+            content: Text("Error: $e"), backgroundColor: AppColors.errorRed));
       }
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
   }
 
+  // =====================================================================
+  // BUILD
+  // =====================================================================
   @override
   Widget build(BuildContext context) {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final isWide = constraints.maxWidth > 800;
+    return LayoutBuilder(builder: (context, constraints) {
+      final isWide = constraints.maxWidth > 800;
 
-        return Scaffold(
-          backgroundColor: AppColors.bgCream,
-          resizeToAvoidBottomInset: true, 
-          body: Stack(
-            children: [
-              const Positioned.fill(child: DotGridBackground()),
-              const BackgroundBlobs(),
-              if (isWide) const _ImprovedWebDecorations(),
-
-              Center(
-                child: ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: 500), 
-                  child: Column(
-                    children: [
-                      // --- TOP STAGE ---
-                      Expanded(
-                        flex: 4, 
-                        child: SafeArea(
-                          child: Stack(
-                            children: [
-                              Positioned(
-                                top: 16, left: 16,
-                                child: GestureDetector(
-                                  onTap: _prevStep,
+      return Scaffold(
+        backgroundColor: AppColors.bgCream,
+        resizeToAvoidBottomInset: true,
+        body: Stack(
+          children: [
+            const Positioned.fill(child: DotGridBackground()),
+            const BackgroundBlobs(),
+            if (isWide) const _WebDecorations(),
+            Center(
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 520),
+                child: Column(
+                  children: [
+                    // --- TOP: MASCOT STAGE ---
+                    SafeArea(
+                      bottom: false,
+                      child: Padding(
+                        padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            // Row: Back + Progress + Badge
+                            Row(
+                              children: [
+                                _BackBtn(onTap: _prevStep),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: _AnimatedProgressBar(
+                                      step: _currentStep, total: 5),
+                                ),
+                                const SizedBox(width: 12),
+                                AnimatedSwitcher(
+                                  duration: const Duration(milliseconds: 300),
                                   child: Container(
-                                    padding: const EdgeInsets.all(10),
+                                    key: ValueKey(_currentStep),
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: 10, vertical: 6),
                                     decoration: BoxDecoration(
-                                      color: Colors.white,
-                                      shape: BoxShape.circle,
-                                      border: Border.all(color: AppColors.borderBlack, width: 2),
-                                      boxShadow: const [BoxShadow(color: AppColors.borderBlack, offset: Offset(2, 2))],
+                                      color: _accent.withOpacity(0.15),
+                                      borderRadius: BorderRadius.circular(10),
+                                      border:
+                                          Border.all(color: _accent, width: 2),
                                     ),
-                                    child: const Icon(Icons.arrow_back_rounded, color: AppColors.textDark, size: 20),
+                                    child: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Text(
+                                            _stepEmojis[
+                                                _currentStep.clamp(0, 4)],
+                                            style:
+                                                const TextStyle(fontSize: 13)),
+                                        const SizedBox(width: 4),
+                                        Text(
+                                            _stepLabels[
+                                                _currentStep.clamp(0, 4)],
+                                            style: GoogleFonts.inter(
+                                                fontSize: 11,
+                                                fontWeight: FontWeight.w800,
+                                                color: _accent)),
+                                      ],
+                                    ),
                                   ),
                                 ),
+                              ],
+                            ),
+                            const SizedBox(height: 8),
+                            // Speech bubble
+                            ScaleTransition(
+                              scale: CurvedAnimation(
+                                  parent: _bubbleCtrl,
+                                  curve: Curves.elasticOut),
+                              child: _SpeechBubble(
+                                key: ValueKey(_currentStep),
+                                text: _currentStep < _stepsData.length
+                                    ? _stepsData[_currentStep]['text']!
+                                    : "",
+                                accent: _accent,
+                                emoji: _stepEmojis[_currentStep.clamp(0, 4)],
                               ),
-                              
-                              // Progress Dashes
-                              Positioned(
-                                top: 20, left: 0, right: 0,
-                                child: Center(
-                                  child: Row(
-                                    mainAxisSize: MainAxisSize.min,
-                                    // 🟢 UPDATED: 5 dashes
-                                    children: List.generate(5, (index) => _buildProgressDash(index)),
-                                  ),
-                                ),
-                              ),
-
-                              // Mascot Stage
-                              Center(
-                                child: Column(
-                                  mainAxisAlignment: MainAxisAlignment.end,
-                                  children: [
-                                    // Bouncing Speech Bubble
-                                    ScaleTransition(
-                                      scale: CurvedAnimation(parent: _bubbleCtrl, curve: Curves.elasticOut),
-                                      child: Container(
-                                        key: ValueKey<int>(_currentStep),
-                                        margin: const EdgeInsets.only(bottom: 8),
-                                        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-                                        decoration: BoxDecoration(
-                                          color: Colors.white,
-                                          borderRadius: BorderRadius.circular(24),
-                                          border: Border.all(color: AppColors.borderBlack, width: 2),
-                                          boxShadow: const [BoxShadow(color: AppColors.borderBlack, offset: Offset(4, 4))],
-                                        ),
-                                        child: Text(
-                                          _currentStep < _stepsData.length ? _stepsData[_currentStep]['text']! : "", 
-                                          textAlign: TextAlign.center, 
-                                          style: GoogleFonts.inter(fontSize: 14, color: AppColors.textDark, fontWeight: FontWeight.w600, height: 1.4)
-                                        ),
-                                      ),
-                                    ),
-                                    // Sliding Bear
-                                    SlideTransition(
-                                      position: Tween<Offset>(begin: const Offset(0, 1), end: Offset.zero).animate(CurvedAnimation(parent: _mascotCtrl, curve: Curves.elasticOut)),
-                                      child: SizedBox(width: 160, height: 160, child: KawaiiPolarBear(isTalking: _isTalking)),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ],
-                          ),
+                            ),
+                            // Bear
+                            SlideTransition(
+                              position: Tween<Offset>(
+                                      begin: const Offset(0, 1),
+                                      end: Offset.zero)
+                                  .animate(CurvedAnimation(
+                                      parent: _mascotCtrl,
+                                      curve: Curves.elasticOut)),
+                              child: SizedBox(
+                                  width: 120,
+                                  height: 120,
+                                  child:
+                                      KawaiiPolarBear(isTalking: _isTalking)),
+                            ),
+                          ],
                         ),
                       ),
+                    ),
 
-                      // --- FORM CARD ---
-                      Expanded(
-                        flex: 6,
+                    // --- BOTTOM: FORM CARD ---
+                    Expanded(
+                      child: SlideTransition(
+                        position: Tween<Offset>(
+                                begin: const Offset(0, 0.3), end: Offset.zero)
+                            .animate(CurvedAnimation(
+                                parent: _cardSlideCtrl,
+                                curve: Curves.easeOutCubic)),
                         child: Container(
                           width: double.infinity,
-                          decoration: const BoxDecoration(
+                          decoration: BoxDecoration(
                             color: Colors.white,
-                            borderRadius: BorderRadius.vertical(top: Radius.circular(40)),
-                            border: Border(
-                              top: BorderSide(color: AppColors.borderBlack, width: 2),
-                              left: BorderSide(color: AppColors.borderBlack, width: 2),
-                              right: BorderSide(color: AppColors.borderBlack, width: 2),
-                            ), 
+                            borderRadius: const BorderRadius.vertical(
+                                top: Radius.circular(36)),
+                            border: const Border(
+                              top: BorderSide(
+                                  color: AppColors.borderBlack, width: 2.5),
+                              left: BorderSide(
+                                  color: AppColors.borderBlack, width: 2.5),
+                              right: BorderSide(
+                                  color: AppColors.borderBlack, width: 2.5),
+                            ),
+                            boxShadow: [
+                              BoxShadow(
+                                  color: AppColors.borderBlack.withOpacity(0.1),
+                                  offset: const Offset(0, -4),
+                                  blurRadius: 16),
+                            ],
                           ),
                           child: Column(
                             children: [
-                              const SizedBox(height: 16),
-                              Container(width: 40, height: 4, decoration: BoxDecoration(color: Colors.grey.shade300, borderRadius: BorderRadius.circular(2))),
-                              
+                              const SizedBox(height: 14),
+                              // Step color indicator strip
+                              AnimatedContainer(
+                                duration: const Duration(milliseconds: 400),
+                                width: 48,
+                                height: 5,
+                                decoration: BoxDecoration(
+                                  color: _accent,
+                                  borderRadius: BorderRadius.circular(3),
+                                ),
+                              ),
                               Expanded(
                                 child: PageView(
                                   controller: _pageController,
                                   physics: const NeverScrollableScrollPhysics(),
                                   children: [
-                                    _StepTransition(child: _buildStep1Identity()), 
-                                    _StepTransition(child: _buildStep2Biology()),
-                                    _StepTransition(child: _buildStep3Lifestyle()),
-                                    _StepTransition(child: _buildStep4AgentContext()),
-                                    // 🟢 NEW: Added Step 5
-                                    _StepTransition(child: _buildStep5OpenEnded()),
+                                    _StepTransition(
+                                        child: _buildStep1Identity()),
+                                    _StepTransition(
+                                        child: _buildStep2Biology()),
+                                    _StepTransition(
+                                        child: _buildStep3Lifestyle()),
+                                    _StepTransition(
+                                        child: _buildStep4AgentContext()),
+                                    _StepTransition(
+                                        child: _buildStep5OpenEnded()),
                                   ],
                                 ),
                               ),
-                              
                               Padding(
-                                padding: const EdgeInsets.fromLTRB(32, 0, 32, 40),
-                                child: SquishyButton(
-                                  // 🟢 UPDATED: Change logic to check for step 4 (index 4 is the 5th step)
-                                  label: _currentStep == 4 ? (_isLoading ? "ACTIVATING..." : "ACTIVATE AGENT") : "CONTINUE",
-                                  onTap: _isLoading ? null : (_currentStep == 4 ? _handleFinalSubmit : _nextStep),
-                                  isLarge: true,
+                                padding:
+                                    const EdgeInsets.fromLTRB(24, 0, 24, 20),
+                                child: _ContinueButton(
+                                  label: _currentStep == 4
+                                      ? (_isLoading
+                                          ? "ACTIVATING..."
+                                          : "ACTIVATE AGENT ✨")
+                                      : "CONTINUE",
+                                  accent: _accent,
+                                  isLoading: _isLoading,
+                                  step: _currentStep,
+                                  total: 5,
+                                  onTap: _isLoading
+                                      ? null
+                                      : (_currentStep == 4
+                                          ? _handleFinalSubmit
+                                          : _nextStep),
                                 ),
                               ),
                             ],
                           ),
                         ),
                       ),
-                    ],
-                  ),
+                    ),
+                  ],
                 ),
               ),
-            ],
-          ),
-        );
-      }
-    );
+            ),
+          ],
+        ),
+      );
+    });
   }
 
-  // --- STEPS ---
+  // =====================================================================
+  // STEP BUILDERS
+  // =====================================================================
 
-  Widget _buildStep1Identity() { 
-      return SingleChildScrollView(
-      padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 24),
+  Widget _buildStep1Identity() {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
       child: Form(
         key: _step1Key,
-        child: Column(children: [
-            Text("Create Account", style: GoogleFonts.inter(fontSize: 24, fontWeight: FontWeight.w900, color: AppColors.textDark)),
-            const SizedBox(height: 24),
-            _ReactivePopInput(label: "Full Name", controller: _nameCtrl, icon: Icons.person_rounded),
-            const SizedBox(height: 16),
-            _ReactivePopInput(label: "Email", controller: _emailCtrl, icon: Icons.email_rounded, type: TextInputType.emailAddress),
-            const SizedBox(height: 16),
-            _ReactivePopInput(label: "Password", controller: _passCtrl, icon: Icons.lock_rounded, isObscure: _obscurePass, onSuffixTap: () => setState(() => _obscurePass = !_obscurePass)),
-            const SizedBox(height: 16),
-            _ReactivePopInput(label: "Confirm Password", controller: _confirmPassCtrl, icon: Icons.lock_outline_rounded, isObscure: _obscureConfirm, onSuffixTap: () => setState(() => _obscureConfirm = !_obscureConfirm)),
-        ]),
+        child: Column(
+          children: [
+            _StepHeader(
+                title: "Create Account",
+                subtitle: "Your fitness journey starts here",
+                accent: _stepColors[0]),
+            const SizedBox(height: 18),
+            _ReactivePopInput(
+                label: "Full Name",
+                controller: _nameCtrl,
+                icon: Icons.person_rounded,
+                accent: _stepColors[0]),
+            const SizedBox(height: 14),
+            _ReactivePopInput(
+                label: "Email",
+                controller: _emailCtrl,
+                icon: Icons.email_rounded,
+                type: TextInputType.emailAddress,
+                accent: _stepColors[0]),
+            const SizedBox(height: 14),
+            _ReactivePopInput(
+                label: "Password",
+                controller: _passCtrl,
+                icon: Icons.lock_rounded,
+                isObscure: _obscurePass,
+                accent: _stepColors[0],
+                onSuffixTap: () =>
+                    setState(() => _obscurePass = !_obscurePass)),
+            const SizedBox(height: 14),
+            _ReactivePopInput(
+                label: "Confirm Password",
+                controller: _confirmPassCtrl,
+                icon: Icons.lock_outline_rounded,
+                isObscure: _obscureConfirm,
+                accent: _stepColors[0],
+                onSuffixTap: () =>
+                    setState(() => _obscureConfirm = !_obscureConfirm)),
+          ],
+        ),
       ),
     );
   }
-  
+
   Widget _buildStep2Biology() {
-      return SingleChildScrollView(
-      padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 24),
+    return SingleChildScrollView(
+      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
       child: Form(
         key: _step2Key,
-        child: Column(children: [
-            Text("Your Baseline", style: GoogleFonts.inter(fontSize: 24, fontWeight: FontWeight.w900, color: AppColors.textDark)),
-            const SizedBox(height: 24),
-            Row(children: [
-              Expanded(child: _ReactivePopInput(label: "Age", controller: _ageCtrl, type: TextInputType.number)), 
-              const SizedBox(width: 16), 
-              Expanded(child: _ReactivePopInput(label: "Weight (kg)", controller: _weightCtrl, type: TextInputType.number))
-            ]),
-            const SizedBox(height: 16),
-            _ReactivePopInput(label: "Height (cm)", controller: _heightCtrl, type: TextInputType.number),
-        ]),
+        child: Column(
+          children: [
+            _StepHeader(
+                title: "Your Baseline",
+                subtitle: "Help your AI coach understand your body",
+                accent: _stepColors[1]),
+            const SizedBox(height: 18),
+            Row(
+              children: [
+                Expanded(
+                    child: _ReactivePopInput(
+                        label: "Age",
+                        controller: _ageCtrl,
+                        type: TextInputType.number,
+                        accent: _stepColors[1])),
+                const SizedBox(width: 14),
+                Expanded(
+                    child: _ReactivePopInput(
+                        label: "Weight (kg)",
+                        controller: _weightCtrl,
+                        type: TextInputType.number,
+                        accent: _stepColors[1])),
+              ],
+            ),
+            const SizedBox(height: 14),
+            _ReactivePopInput(
+                label: "Height (cm)",
+                controller: _heightCtrl,
+                type: TextInputType.number,
+                accent: _stepColors[1]),
+          ],
+        ),
       ),
     );
   }
 
   Widget _buildStep3Lifestyle() {
     return SingleChildScrollView(
-      padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 24),
+      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
       child: Form(
         key: _step3Key,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text("Lifestyle Calibration", style: GoogleFonts.inter(fontSize: 24, fontWeight: FontWeight.w900, color: AppColors.textDark)),
-            const SizedBox(height: 32),
-            _label("Typical Stress Level"),
-            Row(
-              children: [
-                const Icon(Icons.spa, size: 20, color: Colors.green),
-                Expanded(
-                  child: SliderTheme(
-                    data: SliderThemeData(
-                      activeTrackColor: AppColors.primaryTeal,
-                      inactiveTrackColor: Colors.grey[200],
-                      thumbColor: AppColors.textDark,
-                      trackHeight: 12,
-                      thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 12),
-                      overlayShape: SliderComponentShape.noOverlay,
-                    ),
-                    child: Slider(
-                      value: _stressLevel,
-                      min: 0, max: 100, divisions: 10,
-                      label: _stressLevel.round().toString(),
-                      onChanged: (val) => setState(() => _stressLevel = val),
-                    ),
-                  ),
-                ),
-                const Icon(Icons.bolt, size: 20, color: Colors.orange),
-              ],
+            _StepHeader(
+                title: "Lifestyle Calibration",
+                subtitle: "Fine-tuning your AI coach",
+                accent: _stepColors[2]),
+            const SizedBox(height: 20),
+            _SectionLabel("Typical Stress Level", _stepColors[2]),
+            const SizedBox(height: 8),
+            _StressSlider(
+              value: _stressLevel,
+              accent: _stepColors[2],
+              onChanged: (val) => setState(() => _stressLevel = val),
             ),
-            const SizedBox(height: 24),
-            _label("Daily Activity Level"),
+            const SizedBox(height: 20),
+            _SectionLabel("Daily Activity Level", _stepColors[2]),
+            const SizedBox(height: 8),
             Wrap(
-              spacing: 8, runSpacing: 8,
+              spacing: 8,
+              runSpacing: 8,
               children: _activityLevels.map((level) {
                 final isSelected = _activityLevel == level;
-                return ChoiceChip(
-                  label: Text(level),
-                  selected: isSelected,
-                  selectedColor: AppColors.primaryTeal,
-                  backgroundColor: Colors.white,
-                  labelStyle: TextStyle(color: isSelected ? Colors.white : AppColors.textDark, fontWeight: FontWeight.bold),
-                  shape: StadiumBorder(side: BorderSide(color: AppColors.borderBlack, width: 2)),
-                  onSelected: (val) {
-                    if (val) setState(() => _activityLevel = level);
-                  },
+                return _SelectableChip(
+                  label: level,
+                  isSelected: isSelected,
+                  accent: _stepColors[2],
+                  onTap: () => setState(() => _activityLevel = level),
                 );
               }).toList(),
             ),
@@ -478,51 +628,80 @@ class _SignUpPageState extends State<SignUpPage> with TickerProviderStateMixin {
 
   Widget _buildStep4AgentContext() {
     return SingleChildScrollView(
-      padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 24),
+      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
       child: Form(
         key: _step4Key,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text("Agent Intelligence", style: GoogleFonts.inter(fontSize: 24, fontWeight: FontWeight.w900, color: AppColors.textDark)),
-            const SizedBox(height: 24),
-            _label("Available Equipment"),
-            _buildMultiSelectTags(_equipmentOptions, _selectedEquipment),
-            const SizedBox(height: 24),
-            _label("Injuries or Pain Points"),
-            _buildMultiSelectTags(_injuryOptions, _selectedInjuries),
-            const SizedBox(height: 24),
-            _label("Primary Goals"),
-            _buildMultiSelectTags(_goalOptions, _selectedGoals),
+            _StepHeader(
+                title: "Agent Intelligence",
+                subtitle: "Equip your AI with context",
+                accent: _stepColors[3]),
+            const SizedBox(height: 18),
+            _SectionLabel("Available Equipment", _stepColors[3]),
+            const SizedBox(height: 8),
+            _buildMultiSelectTags(
+                _equipmentOptions, _selectedEquipment, _stepColors[3]),
+            const SizedBox(height: 18),
+            _SectionLabel("Injuries or Pain Points", _stepColors[3]),
+            const SizedBox(height: 8),
+            _buildMultiSelectTags(
+                _injuryOptions, _selectedInjuries, _stepColors[3]),
+            const SizedBox(height: 18),
+            _SectionLabel("Primary Goals", _stepColors[3]),
+            const SizedBox(height: 8),
+            _buildMultiSelectTags(_goalOptions, _selectedGoals, _stepColors[3]),
           ],
         ),
       ),
     );
   }
 
-  // 🟢 NEW: Step 5 Widget
   Widget _buildStep5OpenEnded() {
     return SingleChildScrollView(
-      padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 24),
+      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
       child: Form(
         key: _step5Key,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text("Final Thoughts", style: GoogleFonts.inter(fontSize: 24, fontWeight: FontWeight.w900, color: AppColors.textDark)),
+            _StepHeader(
+                title: "Final Thoughts",
+                subtitle: "Anything else your AI coach should know?",
+                accent: _stepColors[4]),
             const SizedBox(height: 16),
-            Text(
-              "Is there anything else I should know? Preferences, fears, or favorite workouts?", 
-              style: GoogleFonts.inter(fontSize: 14, color: AppColors.textSoft, height: 1.5)
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: _stepColors[4].withOpacity(0.06),
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(
+                    color: _stepColors[4].withOpacity(0.2), width: 1.5),
+              ),
+              child: Row(
+                children: [
+                  Icon(Icons.tips_and_updates_rounded,
+                      size: 20, color: _stepColors[4]),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                        "Preferences, fears, or favorite workouts — it all helps!",
+                        style: GoogleFonts.inter(
+                            fontSize: 12,
+                            color: _stepColors[4],
+                            fontWeight: FontWeight.w600)),
+                  ),
+                ],
+              ),
             ),
-            const SizedBox(height: 24),
-            
-            // Large text area for input
+            const SizedBox(height: 20),
             _ReactivePopInput(
-              label: "e.g. I hate burpees, I love running at night...", 
-              controller: _extraNotesCtrl, 
+              label: "e.g. I hate burpees, I love running at night...",
+              controller: _extraNotesCtrl,
               maxLines: 5,
               icon: Icons.note_alt_outlined,
+              accent: _stepColors[4],
             ),
           ],
         ),
@@ -530,74 +709,508 @@ class _SignUpPageState extends State<SignUpPage> with TickerProviderStateMixin {
     );
   }
 
-  Widget _label(String text) => Padding(padding: const EdgeInsets.only(bottom: 8), child: Text(text, style: GoogleFonts.inter(fontWeight: FontWeight.bold, fontSize: 14, color: AppColors.textDark)));
+  // =====================================================================
+  // HELPERS
+  // =====================================================================
 
-  Widget _buildMultiSelectTags(List<String> options, Set<String> selectedSet) {
+  Widget _buildMultiSelectTags(
+      List<String> options, Set<String> selectedSet, Color accent) {
     return Wrap(
-      spacing: 8, runSpacing: 8,
+      spacing: 8,
+      runSpacing: 8,
       children: options.map((option) {
         final isSelected = selectedSet.contains(option);
-        return GestureDetector(
+        return _SelectableChip(
+          label: option,
+          isSelected: isSelected,
+          accent: accent,
           onTap: () {
             setState(() {
               isSelected ? selectedSet.remove(option) : selectedSet.add(option);
             });
           },
-          child: AnimatedContainer(
-            duration: const Duration(milliseconds: 150),
-            curve: Curves.easeOutBack,
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-            decoration: BoxDecoration(
-              color: isSelected ? AppColors.primaryTeal : Colors.white,
-              borderRadius: BorderRadius.circular(20),
-              border: Border.all(color: AppColors.borderBlack, width: 1.5),
-              boxShadow: isSelected 
-                ? [const BoxShadow(color: AppColors.borderBlack, offset: Offset(2, 2))]
-                : [const BoxShadow(color: Colors.transparent, offset: Offset(0, 0))],
-            ),
-            child: Text(
-              option,
-              style: GoogleFonts.inter(color: isSelected ? Colors.white : AppColors.textDark, fontWeight: FontWeight.bold, fontSize: 13),
-            ),
-          ),
         );
       }).toList(),
     );
   }
-  
-  Widget _buildProgressDash(int index) {
-    bool isActive = index <= _currentStep;
-    return AnimatedContainer(
-      duration: const Duration(milliseconds: 300), 
-      curve: Curves.easeOutBack,
-      margin: const EdgeInsets.symmetric(horizontal: 4),
-      height: 6, 
-      width: isActive ? 40 : 32, // Grow active dash slightly
-      decoration: BoxDecoration(
-        color: isActive ? AppColors.primaryTeal : Colors.grey.shade200, 
-        borderRadius: BorderRadius.circular(4),
-        border: Border.all(color: isActive ? AppColors.borderBlack : Colors.transparent, width: 1.5)
+}
+
+// =====================================================================
+// SHARED WIDGETS
+// =====================================================================
+
+// --- STEP HEADER ---
+class _StepHeader extends StatelessWidget {
+  final String title, subtitle;
+  final Color accent;
+  const _StepHeader(
+      {required this.title, required this.subtitle, required this.accent});
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        Text(title,
+            style: GoogleFonts.inter(
+                fontSize: 26,
+                fontWeight: FontWeight.w900,
+                color: AppColors.textDark,
+                letterSpacing: -0.5)),
+        const SizedBox(height: 4),
+        Text(subtitle,
+            style: GoogleFonts.inter(
+                fontSize: 13, color: accent, fontWeight: FontWeight.w600)),
+      ],
+    );
+  }
+}
+
+// --- SPEECH BUBBLE ---
+class _SpeechBubble extends StatelessWidget {
+  final String text, emoji;
+  final Color accent;
+  const _SpeechBubble(
+      {super.key,
+      required this.text,
+      required this.accent,
+      required this.emoji});
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        Container(
+          margin: const EdgeInsets.symmetric(horizontal: 16),
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(18),
+            border: Border.all(color: AppColors.borderBlack, width: 2.5),
+            boxShadow: [
+              BoxShadow(
+                  color: accent.withOpacity(0.15),
+                  offset: const Offset(0, 4),
+                  blurRadius: 12),
+              const BoxShadow(
+                  color: AppColors.borderBlack, offset: Offset(3, 3)),
+            ],
+          ),
+          child: Row(
+            children: [
+              Container(
+                width: 30,
+                height: 30,
+                decoration: BoxDecoration(
+                  color: accent.withOpacity(0.12),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: accent, width: 1.5),
+                ),
+                alignment: Alignment.center,
+                child: Text(emoji, style: const TextStyle(fontSize: 15)),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(text,
+                    style: GoogleFonts.inter(
+                        fontSize: 12,
+                        color: AppColors.textDark,
+                        fontWeight: FontWeight.w600,
+                        height: 1.4)),
+              ),
+            ],
+          ),
+        ),
+        // Pointer tail
+        CustomPaint(
+          size: const Size(20, 10),
+          painter: _BubbleTailPainter(),
+        ),
+      ],
+    );
+  }
+}
+
+class _BubbleTailPainter extends CustomPainter {
+  @override
+  void paint(Canvas canvas, Size size) {
+    final fill = Paint()..color = Colors.white;
+    final stroke = Paint()
+      ..color = AppColors.borderBlack
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2.5;
+
+    final path = Path()
+      ..moveTo(0, 0)
+      ..lineTo(size.width / 2, size.height)
+      ..lineTo(size.width, 0);
+
+    canvas.drawPath(path, fill);
+    canvas.drawPath(path, stroke);
+    // Cover the top stroke with white to blend with bubble
+    canvas.drawLine(
+        const Offset(-1, 0),
+        Offset(size.width + 1, 0),
+        Paint()
+          ..color = Colors.white
+          ..strokeWidth = 3);
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
+}
+
+// --- ANIMATED PROGRESS BAR ---
+class _AnimatedProgressBar extends StatelessWidget {
+  final int step, total;
+  const _AnimatedProgressBar({required this.step, required this.total});
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: List.generate(total * 2 - 1, (i) {
+        if (i.isEven) {
+          final idx = i ~/ 2;
+          final done = idx < step;
+          final active = idx == step;
+          return AnimatedContainer(
+            duration: const Duration(milliseconds: 400),
+            curve: Curves.easeOutBack,
+            width: active ? 30 : 24,
+            height: active ? 30 : 24,
+            decoration: BoxDecoration(
+              color: done
+                  ? _stepColors[idx]
+                  : active
+                      ? _stepColors[idx].withOpacity(0.15)
+                      : Colors.grey.shade100,
+              shape: BoxShape.circle,
+              border: Border.all(
+                  color:
+                      done || active ? _stepColors[idx] : Colors.grey.shade300,
+                  width: active ? 2.5 : 1.5),
+              boxShadow: active
+                  ? [
+                      BoxShadow(
+                          color: _stepColors[idx].withOpacity(0.3),
+                          blurRadius: 6,
+                          spreadRadius: 1)
+                    ]
+                  : [],
+            ),
+            alignment: Alignment.center,
+            child: done
+                ? const Icon(Icons.check_rounded, size: 14, color: Colors.white)
+                : Text("${idx + 1}",
+                    style: GoogleFonts.inter(
+                        fontSize: active ? 11 : 10,
+                        fontWeight: FontWeight.w900,
+                        color:
+                            active ? _stepColors[idx] : Colors.grey.shade400)),
+          );
+        } else {
+          final leftIdx = i ~/ 2;
+          final filled = leftIdx < step;
+          return Expanded(
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 400),
+              height: 3,
+              margin: const EdgeInsets.symmetric(horizontal: 2),
+              decoration: BoxDecoration(
+                color: filled ? _stepColors[leftIdx] : Colors.grey.shade200,
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+          );
+        }
+      }),
+    );
+  }
+}
+
+// --- BACK BUTTON ---
+class _BackBtn extends StatefulWidget {
+  final VoidCallback onTap;
+  const _BackBtn({required this.onTap});
+  @override
+  State<_BackBtn> createState() => _BackBtnState();
+}
+
+class _BackBtnState extends State<_BackBtn> {
+  bool _pressed = false;
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTapDown: (_) => setState(() => _pressed = true),
+      onTapUp: (_) => setState(() => _pressed = false),
+      onTapCancel: () => setState(() => _pressed = false),
+      onTap: widget.onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 100),
+        padding: const EdgeInsets.all(10),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          shape: BoxShape.circle,
+          border: Border.all(color: AppColors.borderBlack, width: 2.5),
+          boxShadow: _pressed
+              ? []
+              : const [
+                  BoxShadow(color: AppColors.borderBlack, offset: Offset(3, 3))
+                ],
+        ),
+        child: const Icon(Icons.arrow_back_rounded,
+            color: AppColors.textDark, size: 20),
       ),
     );
   }
 }
 
-// 🚀 TRANSITION WRAPPER
+// --- CONTINUE BUTTON ---
+class _ContinueButton extends StatefulWidget {
+  final String label;
+  final Color accent;
+  final bool isLoading;
+  final int step, total;
+  final VoidCallback? onTap;
+  const _ContinueButton({
+    required this.label,
+    required this.accent,
+    required this.isLoading,
+    required this.step,
+    required this.total,
+    this.onTap,
+  });
+  @override
+  State<_ContinueButton> createState() => _ContinueButtonState();
+}
+
+class _ContinueButtonState extends State<_ContinueButton> {
+  bool _pressed = false;
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTapDown: (_) => setState(() => _pressed = true),
+      onTapUp: (_) => setState(() => _pressed = false),
+      onTapCancel: () => setState(() => _pressed = false),
+      onTap: widget.onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 150),
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(vertical: 18),
+        decoration: BoxDecoration(
+          color: widget.accent,
+          borderRadius: BorderRadius.circular(50),
+          border: Border.all(color: AppColors.borderBlack, width: 2.5),
+          boxShadow: _pressed
+              ? []
+              : const [
+                  BoxShadow(color: AppColors.borderBlack, offset: Offset(4, 4))
+                ],
+        ),
+        child: AnimatedScale(
+          scale: _pressed ? 0.97 : 1.0,
+          duration: const Duration(milliseconds: 100),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              if (widget.isLoading) ...[
+                const SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(
+                        strokeWidth: 2.5,
+                        valueColor: AlwaysStoppedAnimation(Colors.white))),
+                const SizedBox(width: 12),
+              ],
+              Text(widget.label,
+                  style: GoogleFonts.inter(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w900,
+                      fontSize: 16,
+                      letterSpacing: 1)),
+              if (!widget.isLoading && widget.step < widget.total - 1) ...[
+                const SizedBox(width: 8),
+                const Icon(Icons.arrow_forward_rounded,
+                    color: Colors.white, size: 20),
+              ],
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// --- SECTION LABEL ---
+class _SectionLabel extends StatelessWidget {
+  final String text;
+  final Color accent;
+  const _SectionLabel(this.text, this.accent);
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Container(
+          width: 4,
+          height: 18,
+          decoration: BoxDecoration(
+            color: accent,
+            borderRadius: BorderRadius.circular(2),
+          ),
+        ),
+        const SizedBox(width: 10),
+        Text(text,
+            style: GoogleFonts.inter(
+                fontWeight: FontWeight.w800,
+                fontSize: 14,
+                color: AppColors.textDark)),
+      ],
+    );
+  }
+}
+
+// --- SELECTABLE CHIP ---
+class _SelectableChip extends StatelessWidget {
+  final String label;
+  final bool isSelected;
+  final Color accent;
+  final VoidCallback onTap;
+  const _SelectableChip({
+    required this.label,
+    required this.isSelected,
+    required this.accent,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        curve: Curves.easeOutBack,
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+        decoration: BoxDecoration(
+          color: isSelected ? accent : Colors.white,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(
+              color: isSelected ? accent : AppColors.borderBlack, width: 2),
+          boxShadow: isSelected
+              ? [
+                  BoxShadow(
+                      color: accent.withOpacity(0.3),
+                      offset: const Offset(3, 3)),
+                  const BoxShadow(
+                      color: AppColors.borderBlack, offset: Offset(3, 3)),
+                ]
+              : const [
+                  BoxShadow(color: AppColors.borderBlack, offset: Offset(2, 2)),
+                ],
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (isSelected)
+              const Padding(
+                padding: EdgeInsets.only(right: 6),
+                child: Icon(Icons.check_rounded, size: 16, color: Colors.white),
+              ),
+            Text(label,
+                style: GoogleFonts.inter(
+                    color: isSelected ? Colors.white : AppColors.textDark,
+                    fontWeight: FontWeight.w700,
+                    fontSize: 13)),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// --- STRESS SLIDER ---
+class _StressSlider extends StatelessWidget {
+  final double value;
+  final Color accent;
+  final ValueChanged<double> onChanged;
+  const _StressSlider(
+      {required this.value, required this.accent, required this.onChanged});
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        Row(
+          children: [
+            const Icon(Icons.spa_rounded, size: 20, color: Color(0xFF48BB78)),
+            Expanded(
+              child: SliderTheme(
+                data: SliderThemeData(
+                  activeTrackColor: accent,
+                  inactiveTrackColor: Colors.grey[200],
+                  thumbColor: AppColors.textDark,
+                  trackHeight: 10,
+                  thumbShape:
+                      const RoundSliderThumbShape(enabledThumbRadius: 14),
+                  overlayShape: SliderComponentShape.noOverlay,
+                  trackShape: const RoundedRectSliderTrackShape(),
+                ),
+                child: Slider(
+                  value: value,
+                  min: 0,
+                  max: 100,
+                  divisions: 10,
+                  label: value.round().toString(),
+                  onChanged: onChanged,
+                ),
+              ),
+            ),
+            const Icon(Icons.bolt_rounded, size: 20, color: Color(0xFFE5793A)),
+          ],
+        ),
+        const SizedBox(height: 6),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text("Zen mode",
+                style:
+                    GoogleFonts.inter(fontSize: 11, color: AppColors.textSoft)),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+              decoration: BoxDecoration(
+                color: accent.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: accent, width: 1.5),
+              ),
+              child: Text("${value.round()}%",
+                  style: GoogleFonts.inter(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w800,
+                      color: accent)),
+            ),
+            Text("High gear",
+                style:
+                    GoogleFonts.inter(fontSize: 11, color: AppColors.textSoft)),
+          ],
+        ),
+      ],
+    );
+  }
+}
+
+// --- STEP TRANSITION ---
 class _StepTransition extends StatelessWidget {
   final Widget child;
   const _StepTransition({required this.child});
   @override
   Widget build(BuildContext context) {
-    // Basic slide-fade entry
     return TweenAnimationBuilder<double>(
       tween: Tween(begin: 0.0, end: 1.0),
-      duration: const Duration(milliseconds: 400),
-      curve: Curves.easeOut,
+      duration: const Duration(milliseconds: 500),
+      curve: Curves.easeOutCubic,
       builder: (context, value, child) {
         return Opacity(
-          opacity: value,
+          opacity: value.clamp(0.0, 1.0),
           child: Transform.translate(
-            offset: Offset(0, 20 * (1 - value)),
+            offset: Offset(0, 24 * (1 - value)),
             child: child,
           ),
         );
@@ -607,7 +1220,7 @@ class _StepTransition extends StatelessWidget {
   }
 }
 
-// 🚀 IMPROVED REACTIVE INPUT
+// --- REACTIVE INPUT ---
 class _ReactivePopInput extends StatefulWidget {
   final String label;
   final TextEditingController controller;
@@ -616,15 +1229,17 @@ class _ReactivePopInput extends StatefulWidget {
   final TextInputType? type;
   final int maxLines;
   final VoidCallback? onSuffixTap;
+  final Color accent;
 
   const _ReactivePopInput({
-    required this.label, 
-    required this.controller, 
-    this.icon, 
-    this.isObscure = false, 
-    this.type, 
+    required this.label,
+    required this.controller,
+    this.icon,
+    this.isObscure = false,
+    this.type,
     this.maxLines = 1,
     this.onSuffixTap,
+    this.accent = AppColors.primaryTeal,
   });
 
   @override
@@ -654,17 +1269,18 @@ class _ReactivePopInputState extends State<_ReactivePopInput> {
     return AnimatedContainer(
       duration: const Duration(milliseconds: 200),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: _isFocused ? widget.accent.withOpacity(0.03) : Colors.white,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
-          color: _isFocused ? AppColors.primaryTeal : AppColors.borderBlack, 
-          width: _isFocused ? 2.5 : 2
+          color: _isFocused ? widget.accent : AppColors.borderBlack,
+          width: _isFocused ? 2.5 : 2,
         ),
         boxShadow: [
           BoxShadow(
-            color: _isFocused ? AppColors.primaryTeal.withOpacity(0.3) : AppColors.borderBlack, 
-            offset: _isFocused ? const Offset(6, 6) : const Offset(4, 4),
-            blurRadius: _isFocused ? 0 : 0, // Hard shadow always
+            color: _isFocused
+                ? widget.accent.withOpacity(0.25)
+                : AppColors.borderBlack,
+            offset: _isFocused ? const Offset(5, 5) : const Offset(3, 3),
           )
         ],
       ),
@@ -674,73 +1290,124 @@ class _ReactivePopInputState extends State<_ReactivePopInput> {
         obscureText: widget.isObscure,
         keyboardType: widget.type,
         maxLines: widget.maxLines,
-        // Optional validation logic if needed
-        style: GoogleFonts.inter(fontWeight: FontWeight.w600, color: AppColors.textDark),
+        style: GoogleFonts.inter(
+            fontWeight: FontWeight.w600, color: AppColors.textDark),
         decoration: InputDecoration(
           hintText: widget.label,
-          hintStyle: GoogleFonts.inter(color: AppColors.textSoft.withOpacity(0.6), fontWeight: FontWeight.w500),
-          prefixIcon: widget.icon != null ? Icon(widget.icon, color: _isFocused ? AppColors.primaryTeal : AppColors.textSoft) : null,
-          suffixIcon: widget.onSuffixTap != null 
-            ? IconButton(
-                icon: Icon(widget.isObscure ? Icons.visibility_outlined : Icons.visibility_off_outlined, color: AppColors.textSoft),
-                onPressed: widget.onSuffixTap,
-              ) 
-            : null,
+          hintStyle: GoogleFonts.inter(
+              color: AppColors.textSoft.withOpacity(0.6),
+              fontWeight: FontWeight.w500),
+          prefixIcon: widget.icon != null
+              ? Icon(widget.icon,
+                  color: _isFocused ? widget.accent : AppColors.textSoft)
+              : null,
+          suffixIcon: widget.onSuffixTap != null
+              ? IconButton(
+                  icon: Icon(
+                      widget.isObscure
+                          ? Icons.visibility_outlined
+                          : Icons.visibility_off_outlined,
+                      color: AppColors.textSoft),
+                  onPressed: widget.onSuffixTap,
+                )
+              : null,
           border: InputBorder.none,
-          contentPadding: const EdgeInsets.symmetric(vertical: 16, horizontal: 16),
+          contentPadding:
+              const EdgeInsets.symmetric(vertical: 16, horizontal: 16),
         ),
       ),
     );
   }
 }
 
-// 🌟 IMPROVED WEB DECORATIONS (High Quality Pop Art Clusters)
-class _ImprovedWebDecorations extends StatelessWidget {
-  const _ImprovedWebDecorations();
-
+// =====================================================================
+// WEB DECORATIONS
+// =====================================================================
+class _WebDecorations extends StatelessWidget {
+  const _WebDecorations();
   @override
   Widget build(BuildContext context) {
     return Stack(
       children: [
-        Positioned(left: 80, top: 120, child: _AnimatedSticker(icon: Icons.fitness_center_rounded, color: Colors.orange, size: 48, delay: 0)),
-        Positioned(left: 140, top: 100, child: _PopShape(type: 'circle', color: Colors.cyan, size: 20)),
-        Positioned(left: 60, top: 180, child: _PopShape(type: 'cross', color: Colors.yellow, size: 24)),
-        Positioned(left: 100, bottom: 180, child: _AnimatedSticker(icon: Icons.favorite_rounded, color: Colors.pink, size: 56, delay: 1500)),
-        Positioned(left: 60, bottom: 140, child: _PopShape(type: 'donut', color: Colors.purpleAccent, size: 30)),
-        Positioned(right: 120, top: 150, child: _AnimatedSticker(icon: Icons.water_drop_rounded, color: Colors.blue, size: 42, delay: 500)),
-        Positioned(right: 80, top: 120, child: _PopShape(type: 'star', color: Colors.amber, size: 28)),
-        Positioned(right: 100, bottom: 120, child: _AnimatedSticker(icon: Icons.local_fire_department_rounded, color: Colors.red, size: 52, delay: 2000)),
-        Positioned(right: 160, bottom: 160, child: _PopShape(type: 'circle', color: Colors.green, size: 18)),
-        Positioned(right: 60, bottom: 200, child: _PopShape(type: 'cross', color: Colors.teal, size: 24)),
+        Positioned(
+            left: 80,
+            top: 120,
+            child: _FloatingCard(
+                icon: Icons.fitness_center_rounded,
+                color: const Color(0xFFE5793A),
+                delay: 0)),
+        Positioned(
+            left: 140, top: 100, child: _PopDot(color: Colors.cyan, size: 18)),
+        Positioned(
+            left: 60, top: 180, child: _PopDot(color: Colors.amber, size: 14)),
+        Positioned(
+            left: 100,
+            bottom: 180,
+            child: _FloatingCard(
+                icon: Icons.favorite_rounded, color: Colors.pink, delay: 1500)),
+        Positioned(
+            left: 60,
+            bottom: 140,
+            child: _PopDot(color: Colors.purpleAccent, size: 22)),
+        Positioned(
+            right: 120,
+            top: 150,
+            child: _FloatingCard(
+                icon: Icons.water_drop_rounded,
+                color: Colors.blue,
+                delay: 500)),
+        Positioned(
+            right: 80, top: 120, child: _PopDot(color: Colors.amber, size: 16)),
+        Positioned(
+            right: 100,
+            bottom: 120,
+            child: _FloatingCard(
+                icon: Icons.local_fire_department_rounded,
+                color: Colors.red,
+                delay: 2000)),
+        Positioned(
+            right: 160,
+            bottom: 160,
+            child: _PopDot(color: Colors.green, size: 14)),
+        Positioned(
+            right: 60,
+            bottom: 200,
+            child: _PopDot(color: Colors.teal, size: 18)),
       ],
     );
   }
 }
 
-// A "Sticker" is a floating, rocking icon card
-class _AnimatedSticker extends StatefulWidget {
+class _FloatingCard extends StatefulWidget {
   final IconData icon;
   final Color color;
-  final double size;
   final int delay;
-  const _AnimatedSticker({required this.icon, required this.color, required this.size, required this.delay});
-
+  const _FloatingCard(
+      {required this.icon, required this.color, required this.delay});
   @override
-  State<_AnimatedSticker> createState() => _AnimatedStickerState();
+  State<_FloatingCard> createState() => _FloatingCardState();
 }
 
-class _AnimatedStickerState extends State<_AnimatedSticker> with SingleTickerProviderStateMixin {
+class _FloatingCardState extends State<_FloatingCard>
+    with SingleTickerProviderStateMixin {
   late AnimationController _ctrl;
-  
+
   @override
   void initState() {
     super.initState();
-    _ctrl = AnimationController(vsync: this, duration: const Duration(seconds: 4))..repeat(reverse: true);
-    Future.delayed(Duration(milliseconds: widget.delay), () { if(mounted) _ctrl.forward(); });
+    _ctrl =
+        AnimationController(vsync: this, duration: const Duration(seconds: 4))
+          ..repeat(reverse: true);
+    Future.delayed(Duration(milliseconds: widget.delay), () {
+      if (mounted) _ctrl.forward();
+    });
   }
-  
+
   @override
-  void dispose() { _ctrl.dispose(); super.dispose(); }
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -748,50 +1415,53 @@ class _AnimatedStickerState extends State<_AnimatedSticker> with SingleTickerPro
       animation: _ctrl,
       builder: (ctx, child) {
         return Transform.translate(
-          offset: Offset(0, -15 * _ctrl.value), 
+          offset: Offset(0, -12 * _ctrl.value),
           child: Transform.rotate(
-            angle: 0.1 * math.sin(_ctrl.value * math.pi), // Rocking
-            child: child
+            angle: 0.08 * math.sin(_ctrl.value * math.pi),
+            child: child,
           ),
         );
       },
       child: Container(
-        padding: const EdgeInsets.all(20),
+        padding: const EdgeInsets.all(18),
         decoration: BoxDecoration(
           color: Colors.white,
-          borderRadius: BorderRadius.circular(24),
+          borderRadius: BorderRadius.circular(20),
           border: Border.all(color: AppColors.borderBlack, width: 2.5),
-          boxShadow: const [BoxShadow(color: AppColors.borderBlack, offset: Offset(5, 5))],
+          boxShadow: const [
+            BoxShadow(color: AppColors.borderBlack, offset: Offset(4, 4))
+          ],
         ),
-        child: Icon(widget.icon, size: widget.size, color: widget.color),
+        child: Icon(widget.icon, size: 32, color: widget.color),
       ),
     );
   }
 }
 
-class _PopShape extends StatelessWidget {
-  final String type;
+class _PopDot extends StatelessWidget {
   final Color color;
   final double size;
-  const _PopShape({required this.type, required this.color, required this.size});
-
+  const _PopDot({required this.color, required this.size});
   @override
   Widget build(BuildContext context) {
-    switch (type) {
-      case 'circle': return Container(width: size, height: size, decoration: BoxDecoration(color: color, shape: BoxShape.circle));
-      case 'donut': return Container(width: size, height: size, decoration: BoxDecoration(shape: BoxShape.circle, border: Border.all(color: color, width: 4)));
-      case 'cross': return Icon(Icons.add_rounded, size: size, color: color);
-      case 'star': return Icon(Icons.star_rounded, size: size, color: color);
-      default: return const SizedBox();
-    }
+    return Container(
+      width: size,
+      height: size,
+      decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+    );
   }
 }
+
+// =====================================================================
+// EXPORTED SHARED WIDGETS (used by other pages)
+// =====================================================================
 
 class SquishyButton extends StatefulWidget {
   final String label;
   final VoidCallback? onTap;
   final bool isLarge;
-  const SquishyButton({super.key, required this.label, this.onTap, this.isLarge = false});
+  const SquishyButton(
+      {super.key, required this.label, this.onTap, this.isLarge = false});
   @override
   State<SquishyButton> createState() => _SquishyButtonState();
 }
@@ -805,7 +1475,32 @@ class _SquishyButtonState extends State<SquishyButton> {
       onTapUp: (_) => setState(() => _isPressed = false),
       onTapCancel: () => setState(() => _isPressed = false),
       onTap: widget.onTap,
-      child: AnimatedScale(scale: _isPressed ? 0.95 : 1.0, duration: const Duration(milliseconds: 100), child: Container(width: double.infinity, alignment: Alignment.center, padding: const EdgeInsets.symmetric(vertical: 18), decoration: BoxDecoration(color: AppColors.primaryTeal, borderRadius: BorderRadius.circular(50), border: Border.all(color: AppColors.borderBlack, width: 2), boxShadow: _isPressed ? [] : [const BoxShadow(color: AppColors.borderBlack, offset: Offset(4, 4))]), child: Text(widget.label, style: GoogleFonts.inter(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 18, letterSpacing: 1)))),
+      child: AnimatedScale(
+        scale: _isPressed ? 0.95 : 1.0,
+        duration: const Duration(milliseconds: 100),
+        child: Container(
+          width: double.infinity,
+          alignment: Alignment.center,
+          padding: const EdgeInsets.symmetric(vertical: 18),
+          decoration: BoxDecoration(
+            color: AppColors.primaryTeal,
+            borderRadius: BorderRadius.circular(50),
+            border: Border.all(color: AppColors.borderBlack, width: 2),
+            boxShadow: _isPressed
+                ? []
+                : const [
+                    BoxShadow(
+                        color: AppColors.borderBlack, offset: Offset(4, 4))
+                  ],
+          ),
+          child: Text(widget.label,
+              style: GoogleFonts.inter(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w900,
+                  fontSize: 18,
+                  letterSpacing: 1)),
+        ),
+      ),
     );
   }
 }
@@ -827,6 +1522,7 @@ class DotGridPainter extends CustomPainter {
       }
     }
   }
+
   @override
   bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
@@ -837,8 +1533,10 @@ class BackgroundBlobs extends StatelessWidget {
   Widget build(BuildContext context) {
     return Stack(
       children: [
-        Positioned(top: -100, right: -100, child: _Blob(500, const Color(0xFFE6FFFA))),
-        Positioned(top: 300, left: -50, child: _Blob(400, const Color(0xFFFFF5F7))),
+        Positioned(
+            top: -100, right: -100, child: _Blob(500, const Color(0xFFE6FFFA))),
+        Positioned(
+            top: 300, left: -50, child: _Blob(400, const Color(0xFFFFF5F7))),
       ],
     );
   }
@@ -850,12 +1548,32 @@ class _Blob extends StatelessWidget {
   const _Blob(this.size, this.color);
   @override
   Widget build(BuildContext context) {
-    return Container(width: size, height: size, decoration: BoxDecoration(color: color.withOpacity(0.8), shape: BoxShape.circle), child: BackdropFilter(filter: ImageFilter.blur(sigmaX: 60, sigmaY: 60), child: Container(color: Colors.transparent)));
+    return Container(
+      width: size,
+      height: size,
+      decoration:
+          BoxDecoration(color: color.withOpacity(0.8), shape: BoxShape.circle),
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 60, sigmaY: 60),
+        child: Container(color: Colors.transparent),
+      ),
+    );
   }
 }
 
 class GoogleFonts {
-  static TextStyle inter({Color? color, double? fontSize, FontWeight? fontWeight, double? letterSpacing, double? height}) {
-    return TextStyle(fontFamily: 'Roboto', color: color, fontSize: fontSize, fontWeight: fontWeight, letterSpacing: letterSpacing, height: height);
+  static TextStyle inter(
+      {Color? color,
+      double? fontSize,
+      FontWeight? fontWeight,
+      double? letterSpacing,
+      double? height}) {
+    return TextStyle(
+        fontFamily: 'Roboto',
+        color: color,
+        fontSize: fontSize,
+        fontWeight: fontWeight,
+        letterSpacing: letterSpacing,
+        height: height);
   }
 }
