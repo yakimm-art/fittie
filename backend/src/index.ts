@@ -1,1 +1,0 @@
-// Backend Lambda functions placeholder
