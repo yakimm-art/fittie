@@ -1,0 +1,362 @@
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:intl/intl.dart';
+
+class FirebaseService {
+  final FirebaseAuth _auth = FirebaseAuth.instance;
+  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+
+  // ---------------------------------------------------------------------------
+  // 1. AUTHENTICATION
+  // ---------------------------------------------------------------------------
+
+  Future<User?> signUp({required String email, required String password}) async {
+    try {
+      UserCredential credential = await _auth.createUserWithEmailAndPassword(
+        email: email,
+        password: password,
+      );
+      if (credential.user != null && !credential.user!.emailVerified) {
+        await credential.user!.sendEmailVerification();
+      }
+      return credential.user;
+    } on FirebaseAuthException catch (e) {
+      throw e.message ?? "An unknown error occurred.";
+    } catch (e) {
+      throw "Sign up failed. Please try again.";
+    }
+  }
+
+  Future<User?> signIn({required String email, required String password}) async {
+    try {
+      UserCredential credential = await _auth.signInWithEmailAndPassword(
+        email: email,
+        password: password,
+      );
+      return credential.user;
+    } on FirebaseAuthException catch (e) {
+      throw e.message ?? "Invalid email or password."; 
+    } catch (e) {
+      throw "Login failed. Please try again.";
+    }
+  }
+
+  Future<void> signOut() async {
+    await _auth.signOut();
+  }
+
+  User? get currentUser => _auth.currentUser;
+
+  // ---------------------------------------------------------------------------
+  // 2. USER PROFILE
+  // ---------------------------------------------------------------------------
+
+  Future<void> calibrateUser({
+    required String uid,
+    required String name,
+    required int age,
+    required String weight,
+    required String height,
+    required double stressBaseline,
+    required String activityLevel,
+    required String equipment,
+    required String injuries,
+    required String specificGoals,
+    String? extraNotes,
+  }) async {
+    try {
+      double w = double.tryParse(weight) ?? 70;
+      double h = double.tryParse(height) ?? 170;
+      double bmr = (10 * w) + (6.25 * h) - (5 * age) + 5; 
+      
+      double multiplier = 1.2;
+      if (activityLevel == 'Lightly Active') multiplier = 1.375;
+      if (activityLevel == 'Very Active') multiplier = 1.55;
+      
+      int dailyCalorieGoal = (bmr * multiplier).round();
+
+      await _firestore.collection('users').doc(uid).set({
+        'name': name,
+        'email': _auth.currentUser?.email,
+        'age': age,
+        'weight': weight,
+        'height': height,
+        'dailyCalorieGoal': dailyCalorieGoal,
+        'agentContext': {
+          'equipment': equipment,
+          'injuries': injuries,
+          'goals': specificGoals,
+          'stress_baseline': stressBaseline,
+          'activity_level': activityLevel,
+          'user_notes': extraNotes ?? "None",
+        },
+        'streak': 0,
+        'createdAt': FieldValue.serverTimestamp(),
+        'lastActive': FieldValue.serverTimestamp(),
+        'hasLoggedToday': false,
+      }, SetOptions(merge: true));
+    } catch (e) {
+      print("Error saving user data: $e");
+      throw "Failed to save profile.";
+    }
+  }
+
+  Future<void> updateUserData(Map<String, dynamic> data) async {
+    final user = currentUser;
+    if (user == null) return;
+    await _firestore.collection('users').doc(user.uid).update(data);
+  }
+
+  // ---------------------------------------------------------------------------
+  // 3. STREAK & LOGGING
+  // ---------------------------------------------------------------------------
+
+  Future<int> getStreak() async {
+    final user = _auth.currentUser;
+    if (user == null) return 0;
+    
+    final doc = await _firestore.collection('users').doc(user.uid).get();
+    if (doc.exists) {
+      return doc.data()?['streak'] ?? 0;
+    }
+    return 0;
+  }
+
+  Future<bool> hasLoggedToday() async {
+    final user = _auth.currentUser;
+    if (user == null) return false;
+
+    final doc = await _firestore.collection('users').doc(user.uid).get();
+    if (!doc.exists) return false;
+
+    final data = doc.data()!;
+    final lastCheckIn = data['lastCheckIn'] as Timestamp?;
+
+    if (lastCheckIn == null) return false;
+
+    final now = DateTime.now();
+    final lastDate = lastCheckIn.toDate();
+
+    return now.year == lastDate.year && 
+           now.month == lastDate.month && 
+           now.day == lastDate.day;
+  }
+
+  Future<int> logDailyCheckIn(double energyLevel, String mode) async {
+    final user = _auth.currentUser;
+    if (user == null) return 0;
+
+    final userRef = _firestore.collection('users').doc(user.uid);
+    final today = DateTime.now();
+    final String dateId = "${today.year}-${today.month}-${today.day}"; 
+
+    try {
+      return await _firestore.runTransaction((transaction) async {
+        final userDoc = await transaction.get(userRef);
+        final data = userDoc.exists ? userDoc.data() as Map<String, dynamic> : {};
+        
+        int currentStreak = data['streak'] ?? 0;
+        Timestamp? lastCheckInTs = data['lastCheckIn'];
+
+        int newStreak = currentStreak;
+        if (lastCheckInTs != null) {
+          final lastDate = lastCheckInTs.toDate();
+          final lastDateOnly = DateTime(lastDate.year, lastDate.month, lastDate.day);
+          final todayOnly = DateTime(today.year, today.month, today.day);
+          final difference = todayOnly.difference(lastDateOnly).inDays;
+
+          if (difference == 1) {
+            newStreak++; 
+          } else if (difference > 1) {
+            newStreak = 1; 
+          }
+          // If difference == 0, streak stays the same
+        } else {
+          newStreak = 1; 
+        }
+
+        final logRef = userRef.collection('daily_logs').doc(dateId);
+        transaction.set(logRef, {
+          'energy': energyLevel,
+          'mode': mode,
+          'timestamp': FieldValue.serverTimestamp(),
+          'type': 'check-in',
+        }, SetOptions(merge: true));
+
+        transaction.update(userRef, {
+          'streak': newStreak,
+          'lastCheckIn': FieldValue.serverTimestamp(),
+          'hasLoggedToday': true, 
+        });
+
+        return newStreak;
+      });
+    } catch (e) {
+      print("Streak Error: $e");
+      return 0;
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  // 4. WORKOUT HISTORY & CALORIES
+  // ---------------------------------------------------------------------------
+
+  Stream<QuerySnapshot> getWorkoutHistoryStream() {
+    final user = _auth.currentUser;
+    if (user == null) return const Stream.empty();
+
+    return _firestore
+        .collection('users')
+        .doc(user.uid)
+        .collection('workouts')
+        .orderBy('timestamp', descending: true) 
+        .snapshots();
+  }
+
+  Future<int> getTodayWorkoutCount() async {
+    final user = _auth.currentUser;
+    if (user == null) return 0;
+
+    final now = DateTime.now();
+    final startOfDay = DateTime(now.year, now.month, now.day);
+    final startTimestamp = Timestamp.fromDate(startOfDay);
+
+    final snapshot = await _firestore
+        .collection('users')
+        .doc(user.uid)
+        .collection('workouts')
+        .where('timestamp', isGreaterThanOrEqualTo: startTimestamp)
+        .get();
+
+    return snapshot.docs.length;
+  }
+
+  Future<void> saveCompletedWorkout(List<dynamic> routine, int durationSecs) async {
+    final user = _auth.currentUser;
+    if (user == null) return;
+
+    final now = DateTime.now();
+    final formattedDate = DateFormat('MMM d, yyyy').format(now);
+
+    await _firestore.collection('users').doc(user.uid).collection('workouts').add({
+      'timestamp': FieldValue.serverTimestamp(),
+      'routine': routine,
+      'totalDuration': durationSecs,
+      'completed': true,
+      'formattedDate': formattedDate,
+    });
+  }
+
+  Future<List<double>> getWeeklyCalories() async {
+    final user = _auth.currentUser;
+    if (user == null) return List.filled(7, 0.0);
+
+    final now = DateTime.now();
+    final sevenDaysAgo = now.subtract(const Duration(days: 6)); 
+    final startOfWindow = DateTime(sevenDaysAgo.year, sevenDaysAgo.month, sevenDaysAgo.day);
+
+    try {
+      final snapshot = await _firestore
+          .collection('users')
+          .doc(user.uid)
+          .collection('workouts')
+          .where('timestamp', isGreaterThanOrEqualTo: Timestamp.fromDate(startOfWindow))
+          .get();
+
+      List<double> weeklyData = List.filled(7, 0.0);
+
+      for (var doc in snapshot.docs) {
+        final data = doc.data();
+        final timestamp = (data['timestamp'] as Timestamp).toDate();
+        final routine = data['routine'] as List<dynamic>? ?? [];
+        final totalDuration = data['totalDuration'] as int? ?? 0;
+
+        double calories = 0;
+        bool foundSpecificCalories = false;
+        
+        for (var ex in routine) {
+          if (ex['calories'] != null) {
+            calories += (ex['calories'] as num).toDouble();
+            foundSpecificCalories = true;
+          }
+        }
+
+        if (!foundSpecificCalories || calories == 0) {
+           calories = (totalDuration / 60) * 7;
+        }
+
+        final workoutDate = DateTime(timestamp.year, timestamp.month, timestamp.day);
+        final todayDate = DateTime(now.year, now.month, now.day);
+        final diff = todayDate.difference(workoutDate).inDays;
+
+        if (diff >= 0 && diff < 7) {
+          int index = 6 - diff; 
+          weeklyData[index] += calories;
+        }
+      }
+      return weeklyData;
+    } catch (e) {
+      print("Error fetching weekly calories: $e");
+      return List.filled(7, 0.0);
+    }
+  }
+
+  Future<List<Map<String, dynamic>>> getTodaysBreakdown() async {
+    final user = _auth.currentUser;
+    if (user == null) return [];
+
+    final now = DateTime.now();
+    final startOfDay = DateTime(now.year, now.month, now.day);
+    final startTimestamp = Timestamp.fromDate(startOfDay);
+
+    try {
+      final snapshot = await _firestore
+          .collection('users')
+          .doc(user.uid)
+          .collection('workouts')
+          .where('timestamp', isGreaterThanOrEqualTo: startTimestamp)
+          .get();
+
+      List<Map<String, dynamic>> breakdown = [];
+
+      for (var doc in snapshot.docs) {
+        final data = doc.data();
+        final routine = data['routine'] as List<dynamic>? ?? [];
+        
+        for (var ex in routine) {
+          int duration = ex['duration'] ?? 45;
+          breakdown.add({
+            'name': ex['name'] ?? 'Workout',
+            'duration': duration < 60 ? "${duration}s" : "${(duration/60).ceil()}m",
+            'calories': ex['calories'] ?? 5,
+            'emoji': ex['emoji'] ?? '⚡',
+          });
+        }
+      }
+      return breakdown;
+    } catch (e) {
+      print("Error fetching breakdown: $e");
+      return [];
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  // 5. EMAIL VERIFICATION UTILS
+  // ---------------------------------------------------------------------------
+
+  Future<void> sendVerificationEmail() async {
+    final user = _auth.currentUser;
+    if (user != null && !user.emailVerified) {
+      await user.sendEmailVerification();
+    }
+  }
+
+  Future<bool> checkEmailVerified() async {
+    final user = _auth.currentUser;
+    if (user != null) {
+      await user.reload(); 
+      return user.emailVerified;
+    }
+    return false;
+  }
+}
