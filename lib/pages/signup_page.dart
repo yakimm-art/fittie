@@ -25,9 +25,7 @@ const _stepColors = [
   Color(0xFFED64A6), // pink
 ];
 
-const _stepEmojis = ["👋", "📊", "🧘", "🎯", "✨"];
-
-const _stepLabels = ["Account", "Baseline", "Lifestyle", "Goals", "Extras"];
+const _stepIcons = ["01", "02", "03", "04", "05"];
 
 class SignUpPage extends StatefulWidget {
   const SignUpPage({super.key});
@@ -42,8 +40,6 @@ class _SignUpPageState extends State<SignUpPage> with TickerProviderStateMixin {
   final AudioPlayer _audioPlayer = AudioPlayer();
 
   late AnimationController _mascotCtrl;
-  late AnimationController _bubbleCtrl;
-  late AnimationController _progressCtrl;
   late AnimationController _cardSlideCtrl;
   late AnimationController _pulseCtrl;
 
@@ -143,10 +139,6 @@ class _SignUpPageState extends State<SignUpPage> with TickerProviderStateMixin {
     super.initState();
     _mascotCtrl = AnimationController(
         vsync: this, duration: const Duration(milliseconds: 900));
-    _bubbleCtrl = AnimationController(
-        vsync: this, duration: const Duration(milliseconds: 500));
-    _progressCtrl = AnimationController(
-        vsync: this, duration: const Duration(milliseconds: 600));
     _cardSlideCtrl = AnimationController(
         vsync: this, duration: const Duration(milliseconds: 700));
     _pulseCtrl = AnimationController(
@@ -154,10 +146,11 @@ class _SignUpPageState extends State<SignUpPage> with TickerProviderStateMixin {
       ..repeat(reverse: true);
 
     _mascotCtrl.forward();
-    Future.delayed(const Duration(milliseconds: 300), () {
-      if (mounted) _bubbleCtrl.forward();
-    });
     _cardSlideCtrl.forward();
+
+    _audioPlayer.onPlayerComplete.listen((_) {
+      if (mounted) setState(() => _isTalking = false);
+    });
 
     if (_stepsData.isNotEmpty) {
       _playMascotAudio(_stepsData[0]['audio']!);
@@ -169,8 +162,6 @@ class _SignUpPageState extends State<SignUpPage> with TickerProviderStateMixin {
     _pageController.dispose();
     _audioPlayer.dispose();
     _mascotCtrl.dispose();
-    _bubbleCtrl.dispose();
-    _progressCtrl.dispose();
     _cardSlideCtrl.dispose();
     _pulseCtrl.dispose();
     _nameCtrl.dispose();
@@ -193,16 +184,11 @@ class _SignUpPageState extends State<SignUpPage> with TickerProviderStateMixin {
     await _audioPlayer.stop();
     if (!mounted) return;
     setState(() => _isTalking = true);
-    _bubbleCtrl.reset();
-    _bubbleCtrl.forward();
     try {
       await _audioPlayer.play(AssetSource('audio/$fileName'));
     } catch (e) {
       if (mounted) setState(() => _isTalking = false);
     }
-    _audioPlayer.onPlayerComplete.listen((_) {
-      if (mounted) setState(() => _isTalking = false);
-    });
   }
 
   void _nextStep() {
@@ -224,11 +210,8 @@ class _SignUpPageState extends State<SignUpPage> with TickerProviderStateMixin {
     }
 
     _pageController.nextPage(
-        duration: const Duration(milliseconds: 600),
-        curve: Curves.easeInOutCubicEmphasized);
-
-    _progressCtrl.reset();
-    _progressCtrl.forward();
+        duration: const Duration(milliseconds: 400),
+        curve: Curves.easeOutCubic);
 
     setState(() => _currentStep++);
     if (_currentStep < _stepsData.length) {
@@ -239,10 +222,8 @@ class _SignUpPageState extends State<SignUpPage> with TickerProviderStateMixin {
   void _prevStep() {
     if (_currentStep > 0) {
       _pageController.previousPage(
-          duration: const Duration(milliseconds: 600),
-          curve: Curves.easeInOutCubicEmphasized);
-      _progressCtrl.reset();
-      _progressCtrl.forward();
+          duration: const Duration(milliseconds: 400),
+          curve: Curves.easeOutCubic);
       setState(() => _currentStep--);
       _playMascotAudio(_stepsData[_currentStep]['audio']!);
     } else {
@@ -318,7 +299,7 @@ class _SignUpPageState extends State<SignUpPage> with TickerProviderStateMixin {
                         child: Column(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            // Row: Back + Progress + Badge
+                            // Row: Back + Progress
                             Row(
                               children: [
                                 _BackBtn(onTap: _prevStep),
@@ -327,54 +308,21 @@ class _SignUpPageState extends State<SignUpPage> with TickerProviderStateMixin {
                                   child: _AnimatedProgressBar(
                                       step: _currentStep, total: 5),
                                 ),
-                                const SizedBox(width: 12),
-                                AnimatedSwitcher(
-                                  duration: const Duration(milliseconds: 300),
-                                  child: Container(
-                                    key: ValueKey(_currentStep),
-                                    padding: const EdgeInsets.symmetric(
-                                        horizontal: 10, vertical: 6),
-                                    decoration: BoxDecoration(
-                                      color: _accent.withOpacity(0.15),
-                                      borderRadius: BorderRadius.circular(10),
-                                      border:
-                                          Border.all(color: _accent, width: 2),
-                                    ),
-                                    child: Row(
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        Text(
-                                            _stepEmojis[
-                                                _currentStep.clamp(0, 4)],
-                                            style:
-                                                const TextStyle(fontSize: 13)),
-                                        const SizedBox(width: 4),
-                                        Text(
-                                            _stepLabels[
-                                                _currentStep.clamp(0, 4)],
-                                            style: GoogleFonts.inter(
-                                                fontSize: 11,
-                                                fontWeight: FontWeight.w800,
-                                                color: _accent)),
-                                      ],
-                                    ),
-                                  ),
-                                ),
                               ],
                             ),
                             const SizedBox(height: 8),
                             // Speech bubble
-                            ScaleTransition(
-                              scale: CurvedAnimation(
-                                  parent: _bubbleCtrl,
-                                  curve: Curves.elasticOut),
+                            AnimatedSwitcher(
+                              duration: const Duration(milliseconds: 300),
+                              switchInCurve: Curves.easeOut,
+                              switchOutCurve: Curves.easeIn,
                               child: _SpeechBubble(
                                 key: ValueKey(_currentStep),
                                 text: _currentStep < _stepsData.length
                                     ? _stepsData[_currentStep]['text']!
                                     : "",
                                 accent: _accent,
-                                emoji: _stepEmojis[_currentStep.clamp(0, 4)],
+                                stepNum: _stepIcons[_currentStep.clamp(0, 4)],
                               ),
                             ),
                             // Bear
@@ -409,33 +357,35 @@ class _SignUpPageState extends State<SignUpPage> with TickerProviderStateMixin {
                           decoration: BoxDecoration(
                             color: Colors.white,
                             borderRadius: const BorderRadius.vertical(
-                                top: Radius.circular(36)),
+                                top: Radius.circular(4)),
                             border: const Border(
                               top: BorderSide(
-                                  color: AppColors.borderBlack, width: 2.5),
+                                  color: AppColors.borderBlack, width: 3),
                               left: BorderSide(
-                                  color: AppColors.borderBlack, width: 2.5),
+                                  color: AppColors.borderBlack, width: 3),
                               right: BorderSide(
-                                  color: AppColors.borderBlack, width: 2.5),
+                                  color: AppColors.borderBlack, width: 3),
                             ),
-                            boxShadow: [
+                            boxShadow: const [
                               BoxShadow(
-                                  color: AppColors.borderBlack.withOpacity(0.1),
-                                  offset: const Offset(0, -4),
-                                  blurRadius: 16),
+                                  color: AppColors.borderBlack,
+                                  offset: Offset(0, -4)),
                             ],
                           ),
                           child: Column(
                             children: [
                               const SizedBox(height: 14),
-                              // Step color indicator strip
+                              // Step accent bar
                               AnimatedContainer(
                                 duration: const Duration(milliseconds: 400),
-                                width: 48,
-                                height: 5,
+                                width: 60,
+                                height: 6,
                                 decoration: BoxDecoration(
                                   color: _accent,
-                                  borderRadius: BorderRadius.circular(3),
+                                  borderRadius: BorderRadius.circular(0),
+                                  border: Border.all(
+                                      color: AppColors.borderBlack,
+                                      width: 1.5),
                                 ),
                               ),
                               Expanded(
@@ -463,7 +413,7 @@ class _SignUpPageState extends State<SignUpPage> with TickerProviderStateMixin {
                                   label: _currentStep == 4
                                       ? (_isLoading
                                           ? "ACTIVATING..."
-                                          : "ACTIVATE AGENT ✨")
+                                          : "ACTIVATE AGENT")
                                       : "CONTINUE",
                                   accent: _accent,
                                   isLoading: _isLoading,
@@ -476,6 +426,43 @@ class _SignUpPageState extends State<SignUpPage> with TickerProviderStateMixin {
                                           : _nextStep),
                                 ),
                               ),
+                              // "Already have an account?" link
+                              if (_currentStep == 0)
+                                Padding(
+                                  padding: const EdgeInsets.only(bottom: 14),
+                                  child: Row(
+                                    mainAxisAlignment:
+                                        MainAxisAlignment.center,
+                                    children: [
+                                      Text("Already have an account?",
+                                          style: GoogleFonts.inter(
+                                              fontSize: 13,
+                                              color: AppColors.textSoft)),
+                                      const SizedBox(width: 6),
+                                      GestureDetector(
+                                        onTap: () => Navigator.pop(context),
+                                        child: Container(
+                                          padding:
+                                              const EdgeInsets.only(bottom: 1),
+                                          decoration: const BoxDecoration(
+                                            border: Border(
+                                              bottom: BorderSide(
+                                                  color:
+                                                      AppColors.primaryTeal,
+                                                  width: 2),
+                                            ),
+                                          ),
+                                          child: Text("Log in",
+                                              style: GoogleFonts.inter(
+                                                  fontSize: 13,
+                                                  fontWeight: FontWeight.w800,
+                                                  color:
+                                                      AppColors.primaryTeal)),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
                             ],
                           ),
                         ),
@@ -537,6 +524,18 @@ class _SignUpPageState extends State<SignUpPage> with TickerProviderStateMixin {
                 accent: _stepColors[0],
                 onSuffixTap: () =>
                     setState(() => _obscureConfirm = !_obscureConfirm)),
+            const SizedBox(height: 14),
+            // Password strength indicator
+            ValueListenableBuilder<TextEditingValue>(
+              valueListenable: _passCtrl,
+              builder: (context, value, _) => _PasswordStrengthBar(
+                password: value.text,
+                accent: _stepColors[0],
+              ),
+            ),
+            const SizedBox(height: 20),
+            // Trust badges
+            _TrustBadges(accent: _stepColors[0]),
           ],
         ),
       ),
@@ -672,24 +671,28 @@ class _SignUpPageState extends State<SignUpPage> with TickerProviderStateMixin {
                 accent: _stepColors[4]),
             const SizedBox(height: 16),
             Container(
-              padding: const EdgeInsets.all(16),
+              padding: const EdgeInsets.all(14),
               decoration: BoxDecoration(
-                color: _stepColors[4].withOpacity(0.06),
-                borderRadius: BorderRadius.circular(14),
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(2),
                 border: Border.all(
-                    color: _stepColors[4].withOpacity(0.2), width: 1.5),
+                    color: AppColors.borderBlack, width: 2),
+                boxShadow: const [
+                  BoxShadow(
+                      color: AppColors.borderBlack, offset: Offset(2, 2)),
+                ],
               ),
               child: Row(
                 children: [
                   Icon(Icons.tips_and_updates_rounded,
-                      size: 20, color: _stepColors[4]),
+                      size: 18, color: AppColors.textDark),
                   const SizedBox(width: 10),
                   Expanded(
                     child: Text(
-                        "Preferences, fears, or favorite workouts — it all helps!",
+                        "Preferences, fears, or favorite workouts -- it all helps.",
                         style: GoogleFonts.inter(
                             fontSize: 12,
-                            color: _stepColors[4],
+                            color: AppColors.textDark,
                             fontWeight: FontWeight.w600)),
                   ),
                 ],
@@ -739,6 +742,139 @@ class _SignUpPageState extends State<SignUpPage> with TickerProviderStateMixin {
 // SHARED WIDGETS
 // =====================================================================
 
+// --- PASSWORD STRENGTH BAR ---
+class _PasswordStrengthBar extends StatelessWidget {
+  final String password;
+  final Color accent;
+  const _PasswordStrengthBar(
+      {required this.password, required this.accent});
+
+  int _getStrength() {
+    if (password.isEmpty) return 0;
+    int score = 0;
+    if (password.length >= 6) score++;
+    if (password.length >= 10) score++;
+    if (RegExp(r'[A-Z]').hasMatch(password)) score++;
+    if (RegExp(r'[0-9]').hasMatch(password)) score++;
+    if (RegExp(r'[!@#\$%^&*(),.?":{}|<>]').hasMatch(password)) score++;
+    return score.clamp(0, 5);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final strength = _getStrength();
+    final labels = ['', 'Weak', 'Fair', 'Good', 'Strong', 'Excellent'];
+    final colors = [
+      Colors.grey,
+      const Color(0xFFE53E3E),
+      const Color(0xFFED8936),
+      const Color(0xFFECC94B),
+      const Color(0xFF48BB78),
+      accent,
+    ];
+
+    if (password.isEmpty) return const SizedBox.shrink();
+
+    return Column(
+      children: [
+        Row(
+          children: List.generate(5, (i) {
+            return Expanded(
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 300),
+                height: 6,
+                margin: EdgeInsets.only(right: i < 4 ? 4 : 0),
+                decoration: BoxDecoration(
+                  color:
+                      i < strength ? colors[strength] : Colors.grey.shade200,
+                  borderRadius: BorderRadius.circular(0),
+                  border: Border.all(
+                    color: AppColors.borderBlack,
+                    width: 1.5,
+                  ),
+                ),
+              ),
+            );
+          }),
+        ),
+        const SizedBox(height: 6),
+        Row(
+          children: [
+            Icon(
+              strength >= 4
+                  ? Icons.shield_rounded
+                  : Icons.info_outline_rounded,
+              size: 14,
+              color: colors[strength],
+            ),
+            const SizedBox(width: 6),
+            Text(labels[strength],
+                style: GoogleFonts.inter(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                    color: colors[strength])),
+          ],
+        ),
+      ],
+    );
+  }
+}
+
+// --- TRUST BADGES ---
+class _TrustBadges extends StatelessWidget {
+  final Color accent;
+  const _TrustBadges({required this.accent});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(2),
+        border: Border.all(color: AppColors.borderBlack, width: 2),
+        boxShadow: const [
+          BoxShadow(color: AppColors.borderBlack, offset: Offset(3, 3)),
+        ],
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+        children: [
+          _trustItem(Icons.lock_rounded, "ENCRYPTED"),
+          _divider(),
+          _trustItem(Icons.shield_rounded, "SECURE"),
+          _divider(),
+          _trustItem(Icons.visibility_off_rounded, "PRIVATE"),
+        ],
+      ),
+    );
+  }
+
+  Widget _trustItem(IconData icon, String label) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(icon, size: 14, color: AppColors.textDark),
+        const SizedBox(width: 5),
+        Text(label,
+            style: GoogleFonts.inter(
+                fontSize: 10,
+                color: AppColors.textDark,
+                fontWeight: FontWeight.w900,
+                letterSpacing: 0.5)),
+      ],
+    );
+  }
+
+  Widget _divider() {
+    return Container(
+      width: 2,
+      height: 16,
+      color: AppColors.borderBlack,
+    );
+  }
+}
+
 // --- STEP HEADER ---
 class _StepHeader extends StatelessWidget {
   final String title, subtitle;
@@ -750,16 +886,33 @@ class _StepHeader extends StatelessWidget {
   Widget build(BuildContext context) {
     return Column(
       children: [
+        // Brutalist subtitle tag
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+          decoration: BoxDecoration(
+            color: accent,
+            borderRadius: BorderRadius.circular(2),
+            border: Border.all(color: AppColors.borderBlack, width: 2),
+            boxShadow: const [
+              BoxShadow(
+                  color: AppColors.borderBlack, offset: Offset(2, 2)),
+            ],
+          ),
+          child: Text(subtitle.toUpperCase(),
+              style: GoogleFonts.inter(
+                  fontSize: 10,
+                  color: Colors.white,
+                  fontWeight: FontWeight.w900,
+                  letterSpacing: 0.8)),
+        ),
+        const SizedBox(height: 12),
         Text(title,
+            textAlign: TextAlign.center,
             style: GoogleFonts.inter(
-                fontSize: 26,
+                fontSize: 28,
                 fontWeight: FontWeight.w900,
                 color: AppColors.textDark,
-                letterSpacing: -0.5)),
-        const SizedBox(height: 4),
-        Text(subtitle,
-            style: GoogleFonts.inter(
-                fontSize: 13, color: accent, fontWeight: FontWeight.w600)),
+                letterSpacing: -0.8)),
       ],
     );
   }
@@ -767,13 +920,13 @@ class _StepHeader extends StatelessWidget {
 
 // --- SPEECH BUBBLE ---
 class _SpeechBubble extends StatelessWidget {
-  final String text, emoji;
+  final String text, stepNum;
   final Color accent;
   const _SpeechBubble(
       {super.key,
       required this.text,
       required this.accent,
-      required this.emoji});
+      required this.stepNum});
 
   @override
   Widget build(BuildContext context) {
@@ -784,15 +937,11 @@ class _SpeechBubble extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
           decoration: BoxDecoration(
             color: Colors.white,
-            borderRadius: BorderRadius.circular(18),
+            borderRadius: BorderRadius.circular(4),
             border: Border.all(color: AppColors.borderBlack, width: 2.5),
-            boxShadow: [
+            boxShadow: const [
               BoxShadow(
-                  color: accent.withOpacity(0.15),
-                  offset: const Offset(0, 4),
-                  blurRadius: 12),
-              const BoxShadow(
-                  color: AppColors.borderBlack, offset: Offset(3, 3)),
+                  color: AppColors.borderBlack, offset: Offset(4, 4)),
             ],
           ),
           child: Row(
@@ -801,12 +950,16 @@ class _SpeechBubble extends StatelessWidget {
                 width: 30,
                 height: 30,
                 decoration: BoxDecoration(
-                  color: accent.withOpacity(0.12),
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: accent, width: 1.5),
+                  color: accent,
+                  borderRadius: BorderRadius.circular(2),
+                  border: Border.all(color: AppColors.borderBlack, width: 2),
                 ),
                 alignment: Alignment.center,
-                child: Text(emoji, style: const TextStyle(fontSize: 15)),
+                child: Text(stepNum,
+                    style: GoogleFonts.inter(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w900,
+                        color: Colors.white)),
               ),
               const SizedBox(width: 10),
               Expanded(
@@ -866,63 +1019,45 @@ class _AnimatedProgressBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      children: List.generate(total * 2 - 1, (i) {
-        if (i.isEven) {
-          final idx = i ~/ 2;
-          final done = idx < step;
-          final active = idx == step;
-          return AnimatedContainer(
-            duration: const Duration(milliseconds: 400),
-            curve: Curves.easeOutBack,
-            width: active ? 30 : 24,
-            height: active ? 30 : 24,
+    final progress = (step / (total - 1)).clamp(0.0, 1.0);
+    final accent = _stepColors[step.clamp(0, total - 1)];
+    return Column(
+      children: [
+        ClipRRect(
+          child: Container(
+            height: 14,
             decoration: BoxDecoration(
-              color: done
-                  ? _stepColors[idx]
-                  : active
-                      ? _stepColors[idx].withOpacity(0.15)
-                      : Colors.grey.shade100,
-              shape: BoxShape.circle,
-              border: Border.all(
-                  color:
-                      done || active ? _stepColors[idx] : Colors.grey.shade300,
-                  width: active ? 2.5 : 1.5),
-              boxShadow: active
-                  ? [
-                      BoxShadow(
-                          color: _stepColors[idx].withOpacity(0.3),
-                          blurRadius: 6,
-                          spreadRadius: 1)
-                    ]
-                  : [],
+              color: Colors.grey.shade200,
+              border: Border.all(color: AppColors.borderBlack, width: 2.5),
             ),
-            alignment: Alignment.center,
-            child: done
-                ? const Icon(Icons.check_rounded, size: 14, color: Colors.white)
-                : Text("${idx + 1}",
-                    style: GoogleFonts.inter(
-                        fontSize: active ? 11 : 10,
-                        fontWeight: FontWeight.w900,
-                        color:
-                            active ? _stepColors[idx] : Colors.grey.shade400)),
-          );
-        } else {
-          final leftIdx = i ~/ 2;
-          final filled = leftIdx < step;
-          return Expanded(
-            child: AnimatedContainer(
-              duration: const Duration(milliseconds: 400),
-              height: 3,
-              margin: const EdgeInsets.symmetric(horizontal: 2),
-              decoration: BoxDecoration(
-                color: filled ? _stepColors[leftIdx] : Colors.grey.shade200,
-                borderRadius: BorderRadius.circular(2),
-              ),
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                return Align(
+                  alignment: Alignment.centerLeft,
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 400),
+                    curve: Curves.easeOutCubic,
+                    width: constraints.maxWidth * progress,
+                    color: accent,
+                  ),
+                );
+              },
             ),
-          );
-        }
-      }),
+          ),
+        ),
+        const SizedBox(height: 6),
+        Align(
+          alignment: Alignment.centerLeft,
+          child: Text(
+            "STEP ${step + 1} OF $total",
+            style: GoogleFonts.inter(
+                fontSize: 10,
+                fontWeight: FontWeight.w900,
+                color: AppColors.textDark,
+                letterSpacing: 0.8),
+          ),
+        ),
+      ],
     );
   }
 }
@@ -998,7 +1133,7 @@ class _ContinueButtonState extends State<_ContinueButton> {
         padding: const EdgeInsets.symmetric(vertical: 18),
         decoration: BoxDecoration(
           color: widget.accent,
-          borderRadius: BorderRadius.circular(50),
+          borderRadius: BorderRadius.circular(4),
           border: Border.all(color: AppColors.borderBlack, width: 2.5),
           boxShadow: _pressed
               ? []
@@ -1054,7 +1189,7 @@ class _SectionLabel extends StatelessWidget {
           height: 18,
           decoration: BoxDecoration(
             color: accent,
-            borderRadius: BorderRadius.circular(2),
+            borderRadius: BorderRadius.circular(0),
           ),
         ),
         const SizedBox(width: 10),
@@ -1087,20 +1222,18 @@ class _SelectableChip extends StatelessWidget {
       onTap: onTap,
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),
-        curve: Curves.easeOutBack,
+        curve: Curves.easeOutCubic,
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
         decoration: BoxDecoration(
           color: isSelected ? accent : Colors.white,
-          borderRadius: BorderRadius.circular(14),
+          borderRadius: BorderRadius.circular(2),
           border: Border.all(
-              color: isSelected ? accent : AppColors.borderBlack, width: 2),
+              color: AppColors.borderBlack, width: 2),
           boxShadow: isSelected
-              ? [
+              ? const [
                   BoxShadow(
-                      color: accent.withOpacity(0.3),
-                      offset: const Offset(3, 3)),
-                  const BoxShadow(
-                      color: AppColors.borderBlack, offset: Offset(3, 3)),
+                      color: AppColors.borderBlack,
+                      offset: Offset(3, 3)),
                 ]
               : const [
                   BoxShadow(color: AppColors.borderBlack, offset: Offset(2, 2)),
@@ -1269,17 +1402,15 @@ class _ReactivePopInputState extends State<_ReactivePopInput> {
     return AnimatedContainer(
       duration: const Duration(milliseconds: 200),
       decoration: BoxDecoration(
-        color: _isFocused ? widget.accent.withOpacity(0.03) : Colors.white,
-        borderRadius: BorderRadius.circular(16),
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(4),
         border: Border.all(
           color: _isFocused ? widget.accent : AppColors.borderBlack,
-          width: _isFocused ? 2.5 : 2,
+          width: _isFocused ? 3 : 2,
         ),
         boxShadow: [
           BoxShadow(
-            color: _isFocused
-                ? widget.accent.withOpacity(0.25)
-                : AppColors.borderBlack,
+            color: AppColors.borderBlack,
             offset: _isFocused ? const Offset(5, 5) : const Offset(3, 3),
           )
         ],
