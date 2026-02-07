@@ -1,5 +1,6 @@
 import 'dart:ui';
 import 'dart:math' as math;
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:audioplayers/audioplayers.dart';
 import '../services/firebase_service.dart';
@@ -128,7 +129,7 @@ class _SignUpPageState extends State<SignUpPage> with TickerProviderStateMixin {
     },
     {
       "text": "Anything else? Tell me your preferences or special requests!",
-      "audio": "signup_step4.mp3"
+      "audio": "signup_step3.mp3"
     }
   ];
 
@@ -152,7 +153,7 @@ class _SignUpPageState extends State<SignUpPage> with TickerProviderStateMixin {
       if (mounted) setState(() => _isTalking = false);
     });
 
-    if (_stepsData.isNotEmpty) {
+    if (_stepsData.isNotEmpty && !kIsWeb) {
       _playMascotAudio(_stepsData[0]['audio']!);
     }
   }
@@ -185,7 +186,11 @@ class _SignUpPageState extends State<SignUpPage> with TickerProviderStateMixin {
     if (!mounted) return;
     setState(() => _isTalking = true);
     try {
-      await _audioPlayer.play(AssetSource('audio/$fileName'));
+      if (kIsWeb) {
+        await _audioPlayer.play(UrlSource('assets/assets/audio/$fileName'));
+      } else {
+        await _audioPlayer.play(AssetSource('audio/$fileName'));
+      }
     } catch (e) {
       if (mounted) setState(() => _isTalking = false);
     }
@@ -202,6 +207,8 @@ class _SignUpPageState extends State<SignUpPage> with TickerProviderStateMixin {
       }
     }
     if (_currentStep == 1 && !_step2Key.currentState!.validate()) return;
+    if (_currentStep == 2 && !_step3Key.currentState!.validate()) return;
+    if (_currentStep == 3 && !_step4Key.currentState!.validate()) return;
     if (_currentStep == 3 && _selectedGoals.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
           content: Text("Please select at least one goal!"),
@@ -357,19 +364,19 @@ class _SignUpPageState extends State<SignUpPage> with TickerProviderStateMixin {
                           decoration: BoxDecoration(
                             color: Colors.white,
                             borderRadius: const BorderRadius.vertical(
-                                top: Radius.circular(4)),
+                                top: Radius.circular(28)),
                             border: const Border(
                               top: BorderSide(
-                                  color: AppColors.borderBlack, width: 3),
+                                  color: AppColors.borderBlack, width: 2.5),
                               left: BorderSide(
-                                  color: AppColors.borderBlack, width: 3),
+                                  color: AppColors.borderBlack, width: 2.5),
                               right: BorderSide(
-                                  color: AppColors.borderBlack, width: 3),
+                                  color: AppColors.borderBlack, width: 2.5),
                             ),
                             boxShadow: const [
                               BoxShadow(
                                   color: AppColors.borderBlack,
-                                  offset: Offset(0, -4)),
+                                  offset: Offset(0, -3)),
                             ],
                           ),
                           child: Column(
@@ -498,14 +505,23 @@ class _SignUpPageState extends State<SignUpPage> with TickerProviderStateMixin {
                 label: "Full Name",
                 controller: _nameCtrl,
                 icon: Icons.person_rounded,
-                accent: _stepColors[0]),
+                accent: _stepColors[0],
+                validator: (v) =>
+                    (v == null || v.trim().isEmpty) ? 'Name is required' : null),
             const SizedBox(height: 14),
             _ReactivePopInput(
                 label: "Email",
                 controller: _emailCtrl,
                 icon: Icons.email_rounded,
                 type: TextInputType.emailAddress,
-                accent: _stepColors[0]),
+                accent: _stepColors[0],
+                validator: (v) {
+                  if (v == null || v.trim().isEmpty) return 'Email is required';
+                  if (!RegExp(r'^[^@]+@[^@]+\.[^@]+').hasMatch(v.trim())) {
+                    return 'Enter a valid email';
+                  }
+                  return null;
+                }),
             const SizedBox(height: 14),
             _ReactivePopInput(
                 label: "Password",
@@ -514,7 +530,12 @@ class _SignUpPageState extends State<SignUpPage> with TickerProviderStateMixin {
                 isObscure: _obscurePass,
                 accent: _stepColors[0],
                 onSuffixTap: () =>
-                    setState(() => _obscurePass = !_obscurePass)),
+                    setState(() => _obscurePass = !_obscurePass),
+                validator: (v) {
+                  if (v == null || v.isEmpty) return 'Password is required';
+                  if (v.length < 6) return 'At least 6 characters';
+                  return null;
+                }),
             const SizedBox(height: 14),
             _ReactivePopInput(
                 label: "Confirm Password",
@@ -523,7 +544,9 @@ class _SignUpPageState extends State<SignUpPage> with TickerProviderStateMixin {
                 isObscure: _obscureConfirm,
                 accent: _stepColors[0],
                 onSuffixTap: () =>
-                    setState(() => _obscureConfirm = !_obscureConfirm)),
+                    setState(() => _obscureConfirm = !_obscureConfirm),
+                validator: (v) =>
+                    (v == null || v.isEmpty) ? 'Please confirm password' : null),
             const SizedBox(height: 14),
             // Password strength indicator
             ValueListenableBuilder<TextEditingValue>(
@@ -561,14 +584,18 @@ class _SignUpPageState extends State<SignUpPage> with TickerProviderStateMixin {
                         label: "Age",
                         controller: _ageCtrl,
                         type: TextInputType.number,
-                        accent: _stepColors[1])),
+                        accent: _stepColors[1],
+                        validator: (v) =>
+                            (v == null || v.trim().isEmpty) ? 'Required' : null)),
                 const SizedBox(width: 14),
                 Expanded(
                     child: _ReactivePopInput(
                         label: "Weight (kg)",
                         controller: _weightCtrl,
                         type: TextInputType.number,
-                        accent: _stepColors[1])),
+                        accent: _stepColors[1],
+                        validator: (v) =>
+                            (v == null || v.trim().isEmpty) ? 'Required' : null)),
               ],
             ),
             const SizedBox(height: 14),
@@ -576,7 +603,9 @@ class _SignUpPageState extends State<SignUpPage> with TickerProviderStateMixin {
                 label: "Height (cm)",
                 controller: _heightCtrl,
                 type: TextInputType.number,
-                accent: _stepColors[1]),
+                accent: _stepColors[1],
+                validator: (v) =>
+                    (v == null || v.trim().isEmpty) ? 'Required' : null),
           ],
         ),
       ),
@@ -674,7 +703,7 @@ class _SignUpPageState extends State<SignUpPage> with TickerProviderStateMixin {
               padding: const EdgeInsets.all(14),
               decoration: BoxDecoration(
                 color: Colors.white,
-                borderRadius: BorderRadius.circular(2),
+                borderRadius: BorderRadius.circular(14),
                 border: Border.all(
                     color: AppColors.borderBlack, width: 2),
                 boxShadow: const [
@@ -937,7 +966,7 @@ class _SpeechBubble extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
           decoration: BoxDecoration(
             color: Colors.white,
-            borderRadius: BorderRadius.circular(4),
+            borderRadius: BorderRadius.circular(14),
             border: Border.all(color: AppColors.borderBlack, width: 2.5),
             boxShadow: const [
               BoxShadow(
@@ -951,7 +980,7 @@ class _SpeechBubble extends StatelessWidget {
                 height: 30,
                 decoration: BoxDecoration(
                   color: accent,
-                  borderRadius: BorderRadius.circular(2),
+                  borderRadius: BorderRadius.circular(6),
                   border: Border.all(color: AppColors.borderBlack, width: 2),
                 ),
                 alignment: Alignment.center,
@@ -1028,6 +1057,7 @@ class _AnimatedProgressBar extends StatelessWidget {
             height: 14,
             decoration: BoxDecoration(
               color: Colors.grey.shade200,
+              borderRadius: BorderRadius.circular(7),
               border: Border.all(color: AppColors.borderBlack, width: 2.5),
             ),
             child: LayoutBuilder(
@@ -1038,7 +1068,10 @@ class _AnimatedProgressBar extends StatelessWidget {
                     duration: const Duration(milliseconds: 400),
                     curve: Curves.easeOutCubic,
                     width: constraints.maxWidth * progress,
-                    color: accent,
+                    decoration: BoxDecoration(
+                      color: accent,
+                      borderRadius: BorderRadius.circular(5),
+                    ),
                   ),
                 );
               },
@@ -1133,7 +1166,7 @@ class _ContinueButtonState extends State<_ContinueButton> {
         padding: const EdgeInsets.symmetric(vertical: 18),
         decoration: BoxDecoration(
           color: widget.accent,
-          borderRadius: BorderRadius.circular(4),
+          borderRadius: BorderRadius.circular(14),
           border: Border.all(color: AppColors.borderBlack, width: 2.5),
           boxShadow: _pressed
               ? []
@@ -1363,6 +1396,7 @@ class _ReactivePopInput extends StatefulWidget {
   final int maxLines;
   final VoidCallback? onSuffixTap;
   final Color accent;
+  final String? Function(String?)? validator;
 
   const _ReactivePopInput({
     required this.label,
@@ -1373,6 +1407,7 @@ class _ReactivePopInput extends StatefulWidget {
     this.maxLines = 1,
     this.onSuffixTap,
     this.accent = AppColors.primaryTeal,
+    this.validator,
   });
 
   @override
@@ -1403,15 +1438,18 @@ class _ReactivePopInputState extends State<_ReactivePopInput> {
       duration: const Duration(milliseconds: 200),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(4),
+        borderRadius: BorderRadius.circular(14),
         border: Border.all(
           color: _isFocused ? widget.accent : AppColors.borderBlack,
-          width: _isFocused ? 3 : 2,
+          width: _isFocused ? 2.5 : 2,
         ),
         boxShadow: [
           BoxShadow(
-            color: AppColors.borderBlack,
-            offset: _isFocused ? const Offset(5, 5) : const Offset(3, 3),
+            color: _isFocused
+                ? widget.accent.withOpacity(0.3)
+                : AppColors.borderBlack,
+            offset: _isFocused ? const Offset(0, 0) : const Offset(3, 3),
+            blurRadius: _isFocused ? 8 : 0,
           )
         ],
       ),
@@ -1421,6 +1459,7 @@ class _ReactivePopInputState extends State<_ReactivePopInput> {
         obscureText: widget.isObscure,
         keyboardType: widget.type,
         maxLines: widget.maxLines,
+        validator: widget.validator,
         style: GoogleFonts.inter(
             fontWeight: FontWeight.w600, color: AppColors.textDark),
         decoration: InputDecoration(
@@ -1443,6 +1482,12 @@ class _ReactivePopInputState extends State<_ReactivePopInput> {
                 )
               : null,
           border: InputBorder.none,
+          errorBorder: InputBorder.none,
+          focusedErrorBorder: InputBorder.none,
+          errorStyle: GoogleFonts.inter(
+              fontSize: 11,
+              fontWeight: FontWeight.w700,
+              color: AppColors.errorRed),
           contentPadding:
               const EdgeInsets.symmetric(vertical: 16, horizontal: 16),
         ),

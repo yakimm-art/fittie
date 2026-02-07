@@ -238,60 +238,6 @@ class _LoginPageState extends State<LoginPage>
 
                   const SizedBox(height: 36),
 
-                  // --- SOCIAL LOGIN ---
-                  Row(
-                    children: [
-                      Expanded(
-                          child: _SocialButton(
-                              icon: Icons.g_mobiledata_rounded,
-                              label: "Google",
-                              onTap: () {})),
-                      const SizedBox(width: 12),
-                      Expanded(
-                          child: _SocialButton(
-                              icon: Icons.apple_rounded,
-                              label: "Apple",
-                              onTap: () {})),
-                    ],
-                  ),
-
-                  const SizedBox(height: 28),
-
-                  // --- OR DIVIDER ---
-                  Row(
-                    children: [
-                      Expanded(
-                          child: Container(
-                              height: 2,
-                              color: AppColors.borderBlack.withOpacity(0.12))),
-                      Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 16),
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 12, vertical: 4),
-                          decoration: BoxDecoration(
-                            color: AppColors.accentYellow.withOpacity(0.5),
-                            borderRadius: BorderRadius.circular(6),
-                            border: Border.all(
-                                color: AppColors.borderBlack, width: 1.5),
-                          ),
-                          child: Text("OR",
-                              style: GoogleFonts.inter(
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.w900,
-                                  color: AppColors.textDark,
-                                  letterSpacing: 1.5)),
-                        ),
-                      ),
-                      Expanded(
-                          child: Container(
-                              height: 2,
-                              color: AppColors.borderBlack.withOpacity(0.12))),
-                    ],
-                  ),
-
-                  const SizedBox(height: 28),
-
                   // --- EMAIL FIELD ---
                   _FieldLabel("Email Address"),
                   const SizedBox(height: 8),
@@ -777,62 +723,6 @@ class _TrustBadge extends StatelessWidget {
                 fontWeight: FontWeight.w600,
                 color: AppColors.textSoft)),
       ],
-    );
-  }
-}
-
-class _SocialButton extends StatefulWidget {
-  final IconData icon;
-  final String label;
-  final VoidCallback onTap;
-  const _SocialButton(
-      {required this.icon, required this.label, required this.onTap});
-  @override
-  State<_SocialButton> createState() => _SocialButtonState();
-}
-
-class _SocialButtonState extends State<_SocialButton> {
-  bool _pressed = false;
-  bool _hovered = false;
-
-  @override
-  Widget build(BuildContext context) {
-    return MouseRegion(
-      onEnter: (_) => setState(() => _hovered = true),
-      onExit: (_) => setState(() => _hovered = false),
-      child: GestureDetector(
-        onTapDown: (_) => setState(() => _pressed = true),
-        onTapUp: (_) => setState(() => _pressed = false),
-        onTapCancel: () => setState(() => _pressed = false),
-        onTap: widget.onTap,
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 150),
-          padding: const EdgeInsets.symmetric(vertical: 14),
-          decoration: BoxDecoration(
-            color: _hovered ? AppColors.bgCream : Colors.white,
-            borderRadius: BorderRadius.circular(14),
-            border: Border.all(color: AppColors.borderBlack, width: 2),
-            boxShadow: _pressed
-                ? []
-                : const [
-                    BoxShadow(
-                        color: AppColors.borderBlack, offset: Offset(3, 3))
-                  ],
-          ),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(widget.icon, size: 22, color: AppColors.textDark),
-              const SizedBox(width: 8),
-              Text(widget.label,
-                  style: GoogleFonts.inter(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w700,
-                      color: AppColors.textDark)),
-            ],
-          ),
-        ),
-      ),
     );
   }
 }

@@ -41,6 +41,7 @@ flutter:
   assets:
     - .env
     - assets/app_icon.png
+    - assets/audio/
 
 # --- LAUNCHER ICON CONFIG ---
 flutter_launcher_icons:

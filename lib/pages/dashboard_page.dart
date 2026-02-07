@@ -119,7 +119,7 @@ class _DashboardPageState extends State<DashboardPage> {
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
                 color: AppColors.primaryTeal.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(20),
+                borderRadius: BorderRadius.circular(14),
                 border: Border.all(color: AppColors.primaryTeal, width: 2),
               ),
               child: Row(
@@ -148,9 +148,9 @@ class _DashboardPageState extends State<DashboardPage> {
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
           decoration: BoxDecoration(
             color: isSelected ? AppColors.primaryTeal : Colors.transparent,
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: isSelected ? state.textColor : Colors.transparent, width: 2),
-            boxShadow: isSelected ? [BoxShadow(color: state.textColor, offset: const Offset(4, 4))] : [],
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: isSelected ? AppColors.blackAccent : Colors.transparent, width: 2.5),
+            boxShadow: isSelected ? [const BoxShadow(color: AppColors.blackAccent, offset: Offset(3, 3))] : [],
           ),
           child: Row(
             children: [
@@ -169,12 +169,12 @@ class _DashboardPageState extends State<DashboardPage> {
       margin: const EdgeInsets.fromLTRB(24, 0, 24, 24),
       decoration: BoxDecoration(
         color: state.surfaceColor, 
-        borderRadius: BorderRadius.circular(40),
-        border: Border.all(color: state.textColor, width: 2),
-        boxShadow: [BoxShadow(color: state.textColor, offset: const Offset(0, 4), blurRadius: 0)],
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: AppColors.blackAccent, width: 2.5),
+        boxShadow: const [BoxShadow(color: AppColors.blackAccent, offset: Offset(0, 4))],
       ),
       child: ClipRRect(
-        borderRadius: BorderRadius.circular(40),
+        borderRadius: BorderRadius.circular(14),
         child: BottomNavigationBar(
           items: const <BottomNavigationBarItem>[
             BottomNavigationBarItem(icon: Icon(Icons.dashboard_rounded), label: 'Home'),
@@ -247,8 +247,8 @@ class _HomePageState extends State<HomePage> {
         builder: (context, setDialogState) {
           return AlertDialog(
             shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(24), 
-              side: const BorderSide(color: AppColors.textDark, width: 2),
+              borderRadius: BorderRadius.circular(14), 
+              side: const BorderSide(color: AppColors.blackAccent, width: 2.5),
             ),
             backgroundColor: AppColors.bgCream,
             title: Text("Log Your Mood", style: GoogleFonts.inter(fontWeight: FontWeight.w900)),
@@ -369,23 +369,21 @@ class _HomePageState extends State<HomePage> {
         }
       }
 
-      List<dynamic> routine = await _aiService.generateWorkout(
-        state.mode.name, 
-        _localEnergyLevel.toInt(), 
-        userContext 
-      );
-      
+      // Navigate to workout session with generation parameters
+      // Let user select count first, then AI generates that many exercises
       if (mounted) {
         setState(() => _isQuickLoading = false);
         Navigator.push(context, MaterialPageRoute(builder: (context) => WorkoutSessionPage(
-          routine: routine, 
-          themeColor: AppColors.primaryTeal
+          themeColor: AppColors.primaryTeal,
+          userContext: userContext,
+          mode: state.mode.name,
+          energyLevel: _localEnergyLevel.toInt(),
         )));
       }
     } catch (e) {
       if (mounted) {
         setState(() => _isQuickLoading = false);
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Could not generate: $e")));
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Could not start: $e")));
       }
     }
   }
@@ -396,58 +394,75 @@ class _HomePageState extends State<HomePage> {
 
     return SafeArea(
       child: ListView(
-        padding: const EdgeInsets.fromLTRB(24, 24, 24, 120), 
+        padding: const EdgeInsets.fromLTRB(24, 24, 24, 120),
         children: [
           _buildHeader(state),
-          const SizedBox(height: 30),
+          const SizedBox(height: 24),
 
+          // --- DUOLINGO-STYLE STREAK ---
+          _buildStreakCard(state),
+          const SizedBox(height: 24),
+
+          // --- ENERGY ---
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text("YOUR ENERGY", style: GoogleFonts.inter(color: AppColors.textSoft, fontSize: 12, fontWeight: FontWeight.w800, letterSpacing: 1.0)),
-              TextButton.icon(
-                onPressed: _showMoodPopup,
-                icon: const Icon(Icons.edit, size: 14, color: AppColors.primaryTeal),
-                label: Text("Edit", style: GoogleFonts.inter(fontSize: 12, color: AppColors.primaryTeal, fontWeight: FontWeight.bold)),
-              )
+              Text("YOUR ENERGY",
+                  style: GoogleFonts.inter(
+                      color: AppColors.textDark,
+                      fontSize: 11,
+                      fontWeight: FontWeight.w900,
+                      letterSpacing: 1.5)),
+              GestureDetector(
+                onTap: _showMoodPopup,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: AppColors.primaryTeal.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: AppColors.primaryTeal, width: 1.5),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(Icons.edit, size: 12, color: AppColors.primaryTeal),
+                      const SizedBox(width: 4),
+                      Text("EDIT",
+                          style: GoogleFonts.inter(
+                              fontSize: 10,
+                              color: AppColors.primaryTeal,
+                              fontWeight: FontWeight.w900,
+                              letterSpacing: 0.5)),
+                    ],
+                  ),
+                ),
+              ),
             ],
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 12),
           _buildEnergyDisplay(state),
           const SizedBox(height: 24),
-          
-          Text("YOUR STREAK", style: GoogleFonts.inter(color: AppColors.textSoft, fontSize: 12, fontWeight: FontWeight.w800, letterSpacing: 1.0)),
-          const SizedBox(height: 12),
-          _buildWeeklyCalendar(state),
-          const SizedBox(height: 24),
 
+          // --- STAT BOXES ---
           Row(
             children: [
               Expanded(
                 child: _buildStatBox(
-                  context,
-                  title: "Calories",
+                  title: "CALORIES",
                   value: "${_todayCalories.toInt()}",
                   unit: "kcal",
                   icon: Icons.local_fire_department_rounded,
-                  color: AppColors.lightTeal,
-                  textColor: AppColors.borderTeal,
-                  isHighlighted: true,
-                  borderColor: AppColors.primaryTeal,
+                  accent: Colors.orange,
                 ),
               ),
-              const SizedBox(width: 16),
+              const SizedBox(width: 14),
               Expanded(
                 child: _buildStatBox(
-                  context,
-                  title: "Streak",
+                  title: "STREAK",
                   value: "$_currentStreak",
-                  unit: "Days",
+                  unit: "days",
                   icon: Icons.bolt_rounded,
-                  color: AppColors.white,
-                  textColor: state.textColor,
-                  isHighlighted: false,
-                  borderColor: state.textColor,
+                  accent: AppColors.primaryTeal,
                 ),
               ),
             ],
@@ -455,42 +470,69 @@ class _HomePageState extends State<HomePage> {
           const SizedBox(height: 24),
 
           _buildActionAndMascot(state),
-          const SizedBox(height: 30),
+          const SizedBox(height: 28),
 
-          Text("TODAY'S BREAKDOWN", style: GoogleFonts.inter(fontSize: 14, fontWeight: FontWeight.bold, color: AppColors.textSoft)),
-          const SizedBox(height: 16),
-          _todaysBreakdown.isEmpty 
-            ? Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: state.surfaceColor, 
-                  borderRadius: BorderRadius.circular(16), 
-                  border: Border.all(color: state.textColor, width: 2),
-                  boxShadow: [BoxShadow(color: state.textColor, offset: const Offset(4, 4), blurRadius: 0)],
-                ),
-                child: Text("No workouts yet today. Let's start!", style: GoogleFonts.inter(color: AppColors.textSoft, fontWeight: FontWeight.bold)),
-              )
-            : SizedBox(
-                height: 190, 
-                child: ListView.builder(
-                  scrollDirection: Axis.horizontal,
-                  clipBehavior: Clip.none,
-                  itemCount: _todaysBreakdown.length,
-                  itemBuilder: (context, index) {
-                    final item = _todaysBreakdown[index];
-                    return Padding(
-                      padding: const EdgeInsets.only(right: 16, bottom: 8),
-                      child: _buildActivityCard(
-                        item['name'] ?? "Exercise",
-                        "${item['duration']}", 
-                        item['emoji'] ?? "⚡",
-                        "${item['calories']} kcal",
-                        state.textColor,
+          Text("TODAY'S BREAKDOWN",
+              style: GoogleFonts.inter(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w900,
+                  color: AppColors.textDark,
+                  letterSpacing: 1.5)),
+          const SizedBox(height: 14),
+          _todaysBreakdown.isEmpty
+              ? Container(
+                  padding: const EdgeInsets.all(20),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(color: AppColors.blackAccent, width: 2.5),
+                    boxShadow: const [
+                      BoxShadow(color: AppColors.blackAccent, offset: Offset(4, 4))
+                    ],
+                  ),
+                  child: Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(10),
+                        decoration: BoxDecoration(
+                          color: AppColors.primaryTeal.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(color: AppColors.primaryTeal, width: 2),
+                        ),
+                        child: const Icon(Icons.directions_run_rounded,
+                            color: AppColors.primaryTeal, size: 20),
                       ),
-                    );
-                  },
+                      const SizedBox(width: 14),
+                      Expanded(
+                        child: Text("No workouts yet today. Let's go!",
+                            style: GoogleFonts.inter(
+                                color: AppColors.textDark,
+                                fontWeight: FontWeight.w700,
+                                fontSize: 14)),
+                      ),
+                    ],
+                  ),
+                )
+              : SizedBox(
+                  height: 180,
+                  child: ListView.builder(
+                    scrollDirection: Axis.horizontal,
+                    clipBehavior: Clip.none,
+                    itemCount: _todaysBreakdown.length,
+                    itemBuilder: (context, index) {
+                      final item = _todaysBreakdown[index];
+                      return Padding(
+                        padding: const EdgeInsets.only(right: 14, bottom: 6),
+                        child: _buildActivityCard(
+                          item['name'] ?? "Exercise",
+                          "${item['duration']}",
+                          item['emoji'] ?? "⚡",
+                          "${item['calories']} kcal",
+                        ),
+                      );
+                    },
+                  ),
                 ),
-              ),
         ],
       ),
     );
@@ -500,25 +542,71 @@ class _HomePageState extends State<HomePage> {
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: state.surfaceColor,
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: AppColors.primaryTeal, width: 2),
-        boxShadow: [BoxShadow(color: state.textColor, offset: const Offset(4, 4), blurRadius: 0)], 
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: AppColors.blackAccent, width: 2.5),
+        boxShadow: const [
+          BoxShadow(color: AppColors.blackAccent, offset: Offset(4, 4))
+        ],
       ),
       child: Row(
         children: [
           Container(
             padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(color: AppColors.primaryTeal.withOpacity(0.1), shape: BoxShape.circle),
-            child: const Icon(Icons.bolt_rounded, color: AppColors.primaryTeal, size: 32),
+            decoration: BoxDecoration(
+              color: AppColors.primaryTeal.withOpacity(0.12),
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: AppColors.primaryTeal, width: 2),
+            ),
+            child: const Icon(Icons.bolt_rounded,
+                color: AppColors.primaryTeal, size: 28),
           ),
           const SizedBox(width: 16),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text("${state.energyLevel}% Energy", style: GoogleFonts.inter(fontWeight: FontWeight.w900, fontSize: 20, color: AppColors.borderTeal)),
-                Text("Mode: ${state.mode.name}", style: GoogleFonts.inter(fontSize: 14, color: AppColors.textSoft, fontWeight: FontWeight.w600)),
+                Text("${state.energyLevel}% ENERGY",
+                    style: GoogleFonts.inter(
+                        fontWeight: FontWeight.w900,
+                        fontSize: 20,
+                        color: AppColors.textDark,
+                        letterSpacing: -0.5)),
+                const SizedBox(height: 4),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  decoration: BoxDecoration(
+                    color: AppColors.primaryTeal.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(6),
+                    border: Border.all(color: AppColors.primaryTeal, width: 1.5),
+                  ),
+                  child: Text("MODE: ${state.mode.name.toUpperCase()}",
+                      style: GoogleFonts.inter(
+                          fontSize: 10,
+                          color: AppColors.primaryTeal,
+                          fontWeight: FontWeight.w900,
+                          letterSpacing: 0.5)),
+                ),
+              ],
+            ),
+          ),
+          SizedBox(
+            width: 48,
+            height: 48,
+            child: Stack(
+              alignment: Alignment.center,
+              children: [
+                CircularProgressIndicator(
+                  value: state.energyLevel / 100,
+                  strokeWidth: 4,
+                  backgroundColor: Colors.grey.shade200,
+                  valueColor: const AlwaysStoppedAnimation(AppColors.primaryTeal),
+                ),
+                Text("${state.energyLevel}",
+                    style: GoogleFonts.inter(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w900,
+                        color: AppColors.textDark)),
               ],
             ),
           ),
@@ -530,27 +618,57 @@ class _HomePageState extends State<HomePage> {
   Widget _buildHeader(AppState state) {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      crossAxisAlignment: CrossAxisAlignment.center,
       children: [
-        Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text("HELLO, ${_userName.toUpperCase()}", style: GoogleFonts.inter(fontSize: 12, color: AppColors.textSoft, fontWeight: FontWeight.w800, letterSpacing: 0.5)),
-            Text("Let's Flow.", style: GoogleFonts.inter(fontSize: 32, fontWeight: FontWeight.w900, color: state.textColor)),
-          ],
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(
+                  color: AppColors.primaryTeal.withOpacity(0.12),
+                  borderRadius: BorderRadius.circular(6),
+                  border: Border.all(color: AppColors.primaryTeal, width: 1.5),
+                ),
+                child: Text("HELLO, ${_userName.toUpperCase()}",
+                    style: GoogleFonts.inter(
+                        fontSize: 10,
+                        color: AppColors.primaryTeal,
+                        fontWeight: FontWeight.w900,
+                        letterSpacing: 1.0)),
+              ),
+              const SizedBox(height: 8),
+              Text("Let's Flow.",
+                  style: GoogleFonts.inter(
+                      fontSize: 32,
+                      fontWeight: FontWeight.w900,
+                      color: state.textColor,
+                      letterSpacing: -1)),
+            ],
+          ),
         ),
         Container(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
           decoration: BoxDecoration(
-            color: state.surfaceColor,
-            borderRadius: BorderRadius.circular(20),
-            border: Border.all(color: AppColors.primaryTeal, width: 2),
-            boxShadow: [BoxShadow(color: state.textColor, offset: const Offset(2, 2), blurRadius: 0)], 
+            color: const Color(0xFFFFF8E1),
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: AppColors.blackAccent, width: 2.5),
+            boxShadow: const [
+              BoxShadow(color: AppColors.blackAccent, offset: Offset(3, 3))
+            ],
           ),
           child: Row(
+            mainAxisSize: MainAxisSize.min,
             children: [
-              const Icon(Icons.local_fire_department_rounded, color: Colors.orange, size: 24),
-              const SizedBox(width: 4),
-              Text("$_currentStreak", style: GoogleFonts.inter(fontWeight: FontWeight.w900, color: state.textColor, fontSize: 18)),
+              const Icon(Icons.local_fire_department_rounded,
+                  color: Colors.orange, size: 24),
+              const SizedBox(width: 6),
+              Text("$_currentStreak",
+                  style: GoogleFonts.inter(
+                      fontWeight: FontWeight.w900,
+                      color: AppColors.textDark,
+                      fontSize: 20)),
             ],
           ),
         ),
@@ -558,96 +676,198 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-  Widget _buildWeeklyCalendar(AppState state) {
+  Widget _buildStreakCard(AppState state) {
     DateTime now = DateTime.now();
     DateTime startOfWeek = now.subtract(Duration(days: now.weekday - 1));
-    
+    const dayLabels = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
+
+    String motivText;
+    if (_currentStreak >= 7) {
+      motivText = "Unstoppable! A full week!";
+    } else if (_currentStreak >= 3) {
+      motivText = "You're on fire! Keep pushing!";
+    } else if (_currentStreak >= 1) {
+      motivText = "Great start — don't break the chain!";
+    } else {
+      motivText = "Start your streak today!";
+    }
+
     return Container(
-      padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 16),
+      padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: state.surfaceColor,
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: state.textColor, width: 2),
-        boxShadow: [BoxShadow(color: state.textColor, offset: const Offset(4, 4), blurRadius: 0)],
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: AppColors.blackAccent, width: 2.5),
+        boxShadow: const [
+          BoxShadow(color: AppColors.blackAccent, offset: Offset(4, 4))
+        ],
       ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: List.generate(7, (index) {
-           DateTime dayDate = startOfWeek.add(Duration(days: index));
-           int weekdayIndex = dayDate.weekday;
-           bool isLogged = _loggedWeekdays.contains(weekdayIndex);
-           bool isToday = weekdayIndex == now.weekday;
-           bool isFuture = dayDate.isAfter(now);
-           return _buildCalendarDay(DateFormat('E').format(dayDate)[0], isLogged, isToday, isFuture, state);
-        }),
+      child: Column(
+        children: [
+          // Top: flame + streak count
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFFFF3E0),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: Colors.orange, width: 2),
+                ),
+                child: const Icon(Icons.local_fire_department_rounded,
+                    color: Colors.orange, size: 28),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text("$_currentStreak DAY STREAK",
+                        style: GoogleFonts.inter(
+                            fontSize: 22,
+                            fontWeight: FontWeight.w900,
+                            color: AppColors.textDark,
+                            letterSpacing: -0.5)),
+                    const SizedBox(height: 2),
+                    Text(motivText,
+                        style: GoogleFonts.inter(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                            color: AppColors.textSoft)),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 18),
+          // Divider
+          Container(
+            height: 2.5,
+            decoration: BoxDecoration(
+              color: Colors.grey.shade200,
+              borderRadius: BorderRadius.circular(2),
+            ),
+          ),
+          const SizedBox(height: 16),
+          // Week days row
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: List.generate(7, (index) {
+              DateTime dayDate = startOfWeek.add(Duration(days: index));
+              bool isLogged = _loggedWeekdays.contains(dayDate.weekday);
+              bool isToday = dayDate.day == now.day &&
+                  dayDate.month == now.month &&
+                  dayDate.year == now.year;
+              bool isFuture =
+                  dayDate.isAfter(DateTime(now.year, now.month, now.day));
+              return _buildStreakDay(
+                  dayLabels[index], isLogged, isToday, isFuture);
+            }),
+          ),
+        ],
       ),
     );
   }
 
-  Widget _buildCalendarDay(String label, bool isLogged, bool isToday, bool isFuture, AppState state) {
-    Color bgColor = Colors.transparent;
-    Color borderColor = Colors.grey.shade300;
-    Widget? icon;
-    
-    if (isLogged) {
-      bgColor = AppColors.primaryTeal;
-      borderColor = state.textColor;
-      icon = const Icon(Icons.check, size: 16, color: Colors.white);
-    } else if (isToday) {
-      borderColor = AppColors.primaryTeal;
-    }
-
+  Widget _buildStreakDay(
+      String label, bool isLogged, bool isToday, bool isFuture) {
     return Column(
       children: [
-        Text(label, style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.textSoft)),
+        Text(label,
+            style: GoogleFonts.inter(
+                fontSize: 11,
+                fontWeight: FontWeight.w900,
+                color: isFuture
+                    ? AppColors.textSoft.withOpacity(0.35)
+                    : AppColors.textSoft,
+                letterSpacing: 0.5)),
         const SizedBox(height: 8),
         Container(
-          width: 32,
-          height: 32,
+          width: 38,
+          height: 38,
           decoration: BoxDecoration(
-            color: bgColor,
-            shape: BoxShape.circle,
+            color: isLogged
+                ? AppColors.streakGold
+                : (isToday
+                    ? AppColors.primaryTeal.withOpacity(0.08)
+                    : (isFuture ? Colors.grey.shade50 : Colors.grey.shade100)),
+            borderRadius: BorderRadius.circular(10),
             border: Border.all(
-              color: isFuture ? Colors.transparent : borderColor, 
-              width: isToday && !isLogged ? 2 : (isLogged ? 2 : 1)
+              color: isLogged
+                  ? AppColors.blackAccent
+                  : (isToday
+                      ? AppColors.primaryTeal
+                      : (isFuture
+                          ? Colors.grey.shade200
+                          : Colors.grey.shade300)),
+              width: isLogged || isToday ? 2.5 : 1.5,
             ),
+            boxShadow: isLogged
+                ? const [
+                    BoxShadow(
+                        color: AppColors.blackAccent, offset: Offset(2, 2))
+                  ]
+                : [],
           ),
           child: Center(
-            child: isLogged 
-              ? icon 
-              : (isToday ? Container(width: 8, height: 8, decoration: const BoxDecoration(color: AppColors.primaryTeal, shape: BoxShape.circle)) : null),
+            child: isLogged
+                ? const Icon(Icons.local_fire_department_rounded,
+                    color: Colors.white, size: 20)
+                : (isToday
+                    ? Container(
+                        width: 8,
+                        height: 8,
+                        decoration: BoxDecoration(
+                            color: AppColors.primaryTeal,
+                            borderRadius: BorderRadius.circular(4)))
+                    : null),
           ),
         ),
       ],
     );
   }
 
-  Widget _buildStatBox(BuildContext context, {
-    required String title, required String value, required String unit, 
-    required IconData icon, required Color color, required Color textColor, required bool isHighlighted, required Color borderColor
+  Widget _buildStatBox({
+    required String title,
+    required String value,
+    required String unit,
+    required IconData icon,
+    required Color accent,
   }) {
     return Container(
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
-        color: color,
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: borderColor, width: 2),
-        boxShadow: [BoxShadow(color: borderColor, offset: const Offset(4, 4), blurRadius: 0)],
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: AppColors.blackAccent, width: 2.5),
+        boxShadow: const [
+          BoxShadow(color: AppColors.blackAccent, offset: Offset(4, 4))
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Icon(icon, color: textColor),
-              if (isHighlighted) 
-                Icon(Icons.trending_up_rounded, size: 16, color: textColor.withOpacity(0.5))
-            ],
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: accent.withOpacity(0.12),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: accent, width: 1.5),
+            ),
+            child: Icon(icon, color: accent, size: 20),
           ),
-          const SizedBox(height: 24),
-          Text(value, style: GoogleFonts.inter(fontSize: 28, fontWeight: FontWeight.w900, color: textColor)),
-          Text(unit, style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w800, color: textColor.withOpacity(0.7))),
+          const SizedBox(height: 14),
+          Text(value,
+              style: GoogleFonts.inter(
+                  fontSize: 28,
+                  fontWeight: FontWeight.w900,
+                  color: AppColors.textDark)),
+          Text(unit,
+              style: GoogleFonts.inter(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w800,
+                  color: AppColors.textSoft,
+                  letterSpacing: 0.5)),
         ],
       ),
     );
@@ -666,15 +886,21 @@ class _HomePageState extends State<HomePage> {
               child: Container(
                 decoration: BoxDecoration(
                   color: AppColors.blackAccent,
-                  borderRadius: BorderRadius.circular(32),
-                  border: Border.all(color: AppColors.primaryTeal, width: 2),
-                  boxShadow: [BoxShadow(color: state.textColor, offset: const Offset(4, 4), blurRadius: 0)], 
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(color: AppColors.blackAccent, width: 2.5),
+                  boxShadow: const [
+                    BoxShadow(
+                        color: AppColors.blackAccent, offset: Offset(4, 4))
+                  ],
                 ),
                 child: Stack(
                   children: [
                     Positioned(
-                      right: -10, bottom: -10,
-                      child: Icon(Icons.play_circle_filled, size: 80, color: AppColors.primaryTeal.withOpacity(0.2)),
+                      right: -10,
+                      bottom: -10,
+                      child: Icon(Icons.play_circle_filled,
+                          size: 80,
+                          color: AppColors.primaryTeal.withOpacity(0.15)),
                     ),
                     Padding(
                       padding: const EdgeInsets.all(24.0),
@@ -682,10 +908,23 @@ class _HomePageState extends State<HomePage> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          _isQuickLoading 
-                          ? const SizedBox(height: 24, width: 24, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 3))
-                          : Text("Start", style: GoogleFonts.inter(color: Colors.white, fontSize: 28, fontWeight: FontWeight.w900)),
-                          Text("Quick Flow", style: GoogleFonts.inter(color: Colors.grey, fontSize: 14, fontWeight: FontWeight.w500)),
+                          _isQuickLoading
+                              ? const SizedBox(
+                                  height: 24,
+                                  width: 24,
+                                  child: CircularProgressIndicator(
+                                      color: Colors.white, strokeWidth: 3))
+                              : Text("Start",
+                                  style: GoogleFonts.inter(
+                                      color: Colors.white,
+                                      fontSize: 28,
+                                      fontWeight: FontWeight.w900)),
+                          Text("QUICK FLOW",
+                              style: GoogleFonts.inter(
+                                  color: AppColors.primaryTeal,
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w900,
+                                  letterSpacing: 1.5)),
                         ],
                       ),
                     ),
@@ -694,29 +933,48 @@ class _HomePageState extends State<HomePage> {
               ),
             ),
           ),
-          const SizedBox(width: 16),
+          const SizedBox(width: 14),
           Expanded(
             flex: 3,
             child: Container(
               decoration: BoxDecoration(
-                color: AppColors.white,
-                borderRadius: BorderRadius.circular(32),
-                border: Border.all(color: AppColors.primaryTeal, width: 2),
-                boxShadow: [BoxShadow(color: state.textColor, offset: const Offset(4, 4), blurRadius: 0)], 
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: AppColors.blackAccent, width: 2.5),
+                boxShadow: const [
+                  BoxShadow(
+                      color: AppColors.blackAccent, offset: Offset(4, 4))
+                ],
               ),
               child: Stack(
                 alignment: Alignment.center,
                 children: [
                   Positioned(
-                    bottom: -10, 
+                    bottom: -10,
                     child: const SizedBox(
-                      height: 100, width: 100, 
-                      child: KawaiiPolarBear(), 
+                      height: 100,
+                      width: 100,
+                      child: KawaiiPolarBear(),
                     ),
                   ),
                   Positioned(
-                    top: 16,
-                    child: Text("Fittie", style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.borderTeal)),
+                    top: 14,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 10, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: AppColors.primaryTeal.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(6),
+                        border: Border.all(
+                            color: AppColors.primaryTeal, width: 1.5),
+                      ),
+                      child: Text("FITTIE",
+                          style: GoogleFonts.inter(
+                              fontSize: 10,
+                              fontWeight: FontWeight.w900,
+                              color: AppColors.primaryTeal,
+                              letterSpacing: 1)),
+                    ),
                   ),
                 ],
               ),
@@ -727,15 +985,18 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-  Widget _buildActivityCard(String title, String duration, String emoji, String calories, Color borderColor) {
+  Widget _buildActivityCard(
+      String title, String duration, String emoji, String calories) {
     return Container(
       width: 140,
-      padding: const EdgeInsets.fromLTRB(16, 12, 16, 12), 
+      padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: AppColors.primaryTeal, width: 2),
-        boxShadow: [BoxShadow(color: AppColors.textDark, offset: const Offset(4, 4), blurRadius: 0)],
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: AppColors.blackAccent, width: 2.5),
+        boxShadow: const [
+          BoxShadow(color: AppColors.blackAccent, offset: Offset(3, 3))
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -743,17 +1004,40 @@ class _HomePageState extends State<HomePage> {
           Container(
             padding: const EdgeInsets.all(8),
             decoration: BoxDecoration(
-              color: AppColors.primaryTeal.withOpacity(0.1), 
-              shape: BoxShape.circle,
-              border: Border.all(color: AppColors.primaryTeal, width: 1.5)
+              color: AppColors.primaryTeal.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: AppColors.primaryTeal, width: 1.5),
             ),
-            child: Text(emoji, style: const TextStyle(fontSize: 18)),
+            child: Text(emoji, style: const TextStyle(fontSize: 16)),
           ),
-          const SizedBox(height: 8),
-          Text(title, maxLines: 1, overflow: TextOverflow.ellipsis, style: GoogleFonts.inter(fontWeight: FontWeight.w900, fontSize: 14, color: AppColors.textDark)),
-          Text(duration, style: GoogleFonts.inter(color: AppColors.textSoft, fontSize: 12, fontWeight: FontWeight.bold)),
+          const SizedBox(height: 10),
+          Text(title,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: GoogleFonts.inter(
+                  fontWeight: FontWeight.w900,
+                  fontSize: 13,
+                  color: AppColors.textDark)),
+          Text(duration,
+              style: GoogleFonts.inter(
+                  color: AppColors.textSoft,
+                  fontSize: 11,
+                  fontWeight: FontWeight.w700)),
           const Spacer(),
-          Text(calories, style: GoogleFonts.inter(color: AppColors.primaryTeal, fontWeight: FontWeight.w900, fontSize: 12)),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+            decoration: BoxDecoration(
+              color: AppColors.primaryTeal.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(6),
+              border: Border.all(color: AppColors.primaryTeal, width: 1.5),
+            ),
+            child: Text(calories,
+                style: GoogleFonts.inter(
+                    color: AppColors.primaryTeal,
+                    fontWeight: FontWeight.w900,
+                    fontSize: 10,
+                    letterSpacing: 0.3)),
+          ),
         ],
       ),
     );
@@ -812,18 +1096,19 @@ class _WorkoutsPageState extends State<WorkoutsPage> {
         }
       }
 
-      List<dynamic> routine = await _aiService.generateWorkout(
-        state.mode.name, 
-        state.energyLevel.toInt(), 
-        userContext 
-      );
-
+      // Navigate to workout session with generation parameters
+      // Let user select count first, then AI generates that many exercises
       if (mounted) {
         setState(() => _isLoading = false);
         Color themeColor = AppColors.primaryTeal;
         if (state.energyLevel > 70) themeColor = AppColors.powerRed;
         if (state.energyLevel < 30) themeColor = AppColors.zenGreen;
-        Navigator.push(context, MaterialPageRoute(builder: (context) => WorkoutSessionPage(routine: routine, themeColor: themeColor)));
+        Navigator.push(context, MaterialPageRoute(builder: (context) => WorkoutSessionPage(
+          themeColor: themeColor,
+          userContext: userContext,
+          mode: state.mode.name,
+          energyLevel: state.energyLevel.toInt(),
+        )));
       }
     } catch (e) {
       if (mounted) {
@@ -846,45 +1131,99 @@ class _WorkoutsPageState extends State<WorkoutsPage> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text("AI GENERATOR", style: GoogleFonts.inter(color: AppColors.textSoft, fontWeight: FontWeight.w800, fontSize: 12)),
-            Text("Your Flows", style: GoogleFonts.inter(fontSize: 32, fontWeight: FontWeight.w900, color: state.textColor)),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+              decoration: BoxDecoration(
+                color: AppColors.primaryTeal.withOpacity(0.12),
+                borderRadius: BorderRadius.circular(6),
+                border: Border.all(color: AppColors.primaryTeal, width: 1.5),
+              ),
+              child: Text("AI GENERATOR",
+                  style: GoogleFonts.inter(
+                      color: AppColors.primaryTeal,
+                      fontWeight: FontWeight.w900,
+                      fontSize: 10,
+                      letterSpacing: 1.0)),
+            ),
+            const SizedBox(height: 8),
+            Text("Your Flows",
+                style: GoogleFonts.inter(
+                    fontSize: 32,
+                    fontWeight: FontWeight.w900,
+                    color: state.textColor,
+                    letterSpacing: -1)),
             const SizedBox(height: 20),
-            
+
             Container(
               width: double.infinity,
-              padding: const EdgeInsets.all(32),
+              padding: const EdgeInsets.all(28),
               decoration: BoxDecoration(
                 color: activeColor,
-                borderRadius: BorderRadius.circular(32),
-                border: Border.all(color: state.textColor, width: 3),
-                boxShadow: [BoxShadow(color: state.textColor, offset: const Offset(8, 8), blurRadius: 0)],
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: AppColors.blackAccent, width: 2.5),
+                boxShadow: const [
+                  BoxShadow(
+                      color: AppColors.blackAccent, offset: Offset(6, 6))
+                ],
               ),
               child: Column(
                 children: [
                   Container(
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(color: Colors.white.withOpacity(0.2), shape: BoxShape.circle),
-                    child: const Icon(Icons.auto_awesome, size: 48, color: Colors.white),
+                    padding: const EdgeInsets.all(14),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.2),
+                      borderRadius: BorderRadius.circular(14),
+                      border:
+                          Border.all(color: Colors.white.withOpacity(0.3), width: 2),
+                    ),
+                    child:
+                        const Icon(Icons.auto_awesome, size: 40, color: Colors.white),
                   ),
-                  const SizedBox(height: 20),
-                  Text("Create New Flow", style: GoogleFonts.inter(color: Colors.white, fontSize: 28, fontWeight: FontWeight.w900)),
-                  const SizedBox(height: 8),
-                  Text("Dynamic routine based on ${state.mode.name.toLowerCase()} mode and ${state.energyLevel}% energy.", 
-                    textAlign: TextAlign.center,
-                    style: GoogleFonts.inter(color: Colors.white.withOpacity(0.9), fontSize: 14, fontWeight: FontWeight.w600)),
-                  const SizedBox(height: 32),
+                  const SizedBox(height: 18),
+                  Text("CREATE NEW FLOW",
+                      style: GoogleFonts.inter(
+                          color: Colors.white,
+                          fontSize: 24,
+                          fontWeight: FontWeight.w900,
+                          letterSpacing: -0.5)),
+                  const SizedBox(height: 6),
+                  Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.15),
+                      borderRadius: BorderRadius.circular(6),
+                      border:
+                          Border.all(color: Colors.white.withOpacity(0.3), width: 1.5),
+                    ),
+                    child: Text(
+                        "${state.mode.name.toUpperCase()} MODE / ${state.energyLevel}% ENERGY",
+                        style: GoogleFonts.inter(
+                            color: Colors.white,
+                            fontSize: 10,
+                            fontWeight: FontWeight.w900,
+                            letterSpacing: 0.8)),
+                  ),
+                  const SizedBox(height: 24),
                   SquishyButton(
                     text: _isLoading ? "CALCULATING..." : "START FLOW",
-                    onTap: _isLoading ? null : () => _startAiSession(context, state),
+                    onTap: _isLoading
+                        ? null
+                        : () => _startAiSession(context, state),
                     color: Colors.white,
                     textColor: activeColor,
                   ),
                 ],
               ),
             ),
-            const SizedBox(height: 48),
-            Text("HISTORY (PAST 7 DAYS)", style: GoogleFonts.inter(color: AppColors.textSoft, fontSize: 12, fontWeight: FontWeight.w800, letterSpacing: 1.5)),
-            const SizedBox(height: 16),
+            const SizedBox(height: 32),
+            Text("HISTORY (PAST 7 DAYS)",
+                style: GoogleFonts.inter(
+                    color: AppColors.textDark,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: 1.5)),
+            const SizedBox(height: 14),
             Expanded(
               child: StreamBuilder<QuerySnapshot>(
                 stream: _firebaseService.getWorkoutHistoryStream(),
@@ -915,29 +1254,32 @@ class _WorkoutsPageState extends State<WorkoutsPage> {
                       final String dateStr = data['formattedDate'] ?? "";
 
                       return Container(
-                        margin: const EdgeInsets.only(bottom: 20),
+                        margin: const EdgeInsets.only(bottom: 16),
                         decoration: BoxDecoration(
-                          color: state.surfaceColor,
-                          borderRadius: BorderRadius.circular(24),
-                          border: Border.all(color: state.textColor, width: 2),
-                          boxShadow: [BoxShadow(color: state.textColor, offset: const Offset(4, 4), blurRadius: 0)],
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(14),
+                          border: Border.all(color: AppColors.blackAccent, width: 2.5),
+                          boxShadow: const [
+                            BoxShadow(
+                                color: AppColors.blackAccent, offset: Offset(4, 4))
+                          ],
                         ),
                         child: Theme(
                           data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
                           child: ExpansionTile(
-                            tilePadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-                            iconColor: state.textColor,
-                            collapsedIconColor: state.textColor,
+                            tilePadding: const EdgeInsets.symmetric(horizontal: 18, vertical: 6),
+                            iconColor: AppColors.textDark,
+                            collapsedIconColor: AppColors.textDark,
                             leading: Container(
                               padding: const EdgeInsets.all(10),
                               decoration: BoxDecoration(
                                 color: AppColors.primaryTeal.withOpacity(0.1),
-                                borderRadius: BorderRadius.circular(16),
+                                borderRadius: BorderRadius.circular(10),
                                 border: Border.all(color: AppColors.primaryTeal, width: 2),
                               ),
-                              child: const Icon(Icons.history_rounded, color: AppColors.primaryTeal),
+                              child: const Icon(Icons.history_rounded, color: AppColors.primaryTeal, size: 20),
                             ),
-                            title: Text(dateStr, style: GoogleFonts.inter(fontWeight: FontWeight.w900, color: state.textColor, fontSize: 16)),
+                            title: Text(dateStr, style: GoogleFonts.inter(fontWeight: FontWeight.w900, color: AppColors.textDark, fontSize: 15)),
                             subtitle: Padding(
                               padding: const EdgeInsets.only(top: 4.0),
                               child: Row(
@@ -950,10 +1292,10 @@ class _WorkoutsPageState extends State<WorkoutsPage> {
                             ),
                             children: [
                               Container(
-                                padding: const EdgeInsets.all(20),
+                                padding: const EdgeInsets.all(18),
                                 decoration: BoxDecoration(
                                   color: AppColors.bgCream.withOpacity(0.5),
-                                  borderRadius: const BorderRadius.vertical(bottom: Radius.circular(24)),
+                                  borderRadius: const BorderRadius.vertical(bottom: Radius.circular(12)),
                                 ),
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -992,14 +1334,19 @@ class _WorkoutsPageState extends State<WorkoutsPage> {
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
         color: color.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(color: color.withOpacity(0.3), width: 1.5),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
           Icon(icon, size: 12, color: color),
           const SizedBox(width: 4),
-          Text(label, style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.bold, color: color)),
+          Text(label,
+              style: GoogleFonts.inter(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w900,
+                  color: color)),
         ],
       ),
     );
@@ -1062,36 +1409,47 @@ class _ChatPageState extends State<ChatPage> {
     final chatMessages = state.chatMessages;
 
     return Padding(
-      padding: const EdgeInsets.fromLTRB(8.0, 8.0, 8.0, 16.0), 
+      padding: const EdgeInsets.fromLTRB(8.0, 8.0, 8.0, 16.0),
       child: Container(
         decoration: BoxDecoration(
-          color: state.surfaceColor,
-          borderRadius: BorderRadius.circular(32),
-          border: Border.all(color: state.textColor, width: 2.5),
-          boxShadow: [BoxShadow(color: state.textColor, offset: const Offset(6, 6))], 
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: AppColors.blackAccent, width: 2.5),
+          boxShadow: const [
+            BoxShadow(color: AppColors.blackAccent, offset: Offset(5, 5))
+          ],
         ),
-        clipBehavior: Clip.none, 
+        clipBehavior: Clip.none,
         child: Column(
           children: [
             Container(
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+              padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
               decoration: BoxDecoration(
-                color: state.surfaceColor,
-                borderRadius: const BorderRadius.vertical(top: Radius.circular(30)),
-                border: Border(bottom: BorderSide(color: state.textColor, width: 2)),
+                color: Colors.white,
+                borderRadius:
+                    const BorderRadius.vertical(top: Radius.circular(12)),
+                border: const Border(
+                    bottom:
+                        BorderSide(color: AppColors.blackAccent, width: 2.5)),
               ),
               child: Row(
                 children: [
                   Container(
-                    height: 48, width: 48,
+                    height: 44,
+                    width: 44,
                     decoration: BoxDecoration(
                       color: AppColors.bgCream,
-                      shape: BoxShape.circle,
-                      border: Border.all(color: state.textColor, width: 2),
+                      borderRadius: BorderRadius.circular(12),
+                      border:
+                          Border.all(color: AppColors.blackAccent, width: 2.5),
+                      boxShadow: const [
+                        BoxShadow(
+                            color: AppColors.blackAccent,
+                            offset: Offset(2, 2))
+                      ],
                     ),
-                    // 🟢 FIXED: Mascot inside circle is now very small and centered using Padding and FittedBox
                     child: const Padding(
-                      padding: EdgeInsets.all(12.0),
+                      padding: EdgeInsets.all(10.0),
                       child: FittedBox(
                         fit: BoxFit.contain,
                         child: KawaiiPolarBear(isTalking: false),
@@ -1103,89 +1461,150 @@ class _ChatPageState extends State<ChatPage> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text("Fittie Agent", style: GoogleFonts.inter(fontSize: 18, fontWeight: FontWeight.w900, color: state.textColor)),
+                        Text("FITTIE AGENT",
+                            style: GoogleFonts.inter(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w900,
+                                color: AppColors.textDark,
+                                letterSpacing: 0.5)),
+                        const SizedBox(height: 2),
                         Row(
                           children: [
-                            Container(width: 8, height: 8, decoration: const BoxDecoration(color: Colors.green, shape: BoxShape.circle)),
+                            Container(
+                                width: 8,
+                                height: 8,
+                                decoration: BoxDecoration(
+                                    color: Colors.green,
+                                    borderRadius: BorderRadius.circular(4))),
                             const SizedBox(width: 6),
-                            Text("Active", style: GoogleFonts.inter(fontSize: 12, color: AppColors.primaryTeal, fontWeight: FontWeight.bold)),
+                            Text("ACTIVE",
+                                style: GoogleFonts.inter(
+                                    fontSize: 10,
+                                    color: AppColors.primaryTeal,
+                                    fontWeight: FontWeight.w900,
+                                    letterSpacing: 0.5)),
                           ],
                         ),
                       ],
                     ),
                   ),
-                  IconButton(onPressed: () => state.clearChat(), icon: const Icon(Icons.delete_outline, size: 20))
+                  GestureDetector(
+                    onTap: () => state.clearChat(),
+                    child: Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: AppColors.errorRed.withOpacity(0.08),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(
+                            color: AppColors.errorRed.withOpacity(0.3),
+                            width: 1.5),
+                      ),
+                      child: const Icon(Icons.delete_outline,
+                          size: 18, color: AppColors.errorRed),
+                    ),
+                  ),
                 ],
               ),
             ),
-            
+
             Expanded(
-              child: ListView.builder(
-                controller: _scrollCtrl,
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
-                itemCount: chatMessages.length,
-                itemBuilder: (context, index) {
-                  final msg = chatMessages[index];
-                  final isUser = msg['role'] == 'user';
-                  return Align(
-                    alignment: isUser ? Alignment.centerRight : Alignment.centerLeft,
-                    child: Container(
-                      margin: const EdgeInsets.only(bottom: 16),
-                      padding: const EdgeInsets.all(16),
-                      constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.75),
-                      decoration: BoxDecoration(
-                        color: isUser ? AppColors.primaryTeal : AppColors.bgCream,
-                        borderRadius: BorderRadius.only(
-                          topLeft: const Radius.circular(20),
-                          topRight: const Radius.circular(20),
-                          bottomLeft: Radius.circular(isUser ? 20 : 4),
-                          bottomRight: Radius.circular(isUser ? 4 : 20),
+              child: Container(
+                color: AppColors.bgCream.withOpacity(0.4),
+                child: ListView.builder(
+                  controller: _scrollCtrl,
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 16, vertical: 18),
+                  itemCount: chatMessages.length,
+                  itemBuilder: (context, index) {
+                    final msg = chatMessages[index];
+                    final isUser = msg['role'] == 'user';
+                    return Align(
+                      alignment: isUser
+                          ? Alignment.centerRight
+                          : Alignment.centerLeft,
+                      child: Container(
+                        margin: const EdgeInsets.only(bottom: 14),
+                        padding: const EdgeInsets.all(14),
+                        constraints: BoxConstraints(
+                            maxWidth:
+                                MediaQuery.of(context).size.width * 0.75),
+                        decoration: BoxDecoration(
+                          color: isUser
+                              ? AppColors.primaryTeal
+                              : Colors.white,
+                          borderRadius: BorderRadius.only(
+                            topLeft: const Radius.circular(14),
+                            topRight: const Radius.circular(14),
+                            bottomLeft: Radius.circular(isUser ? 14 : 4),
+                            bottomRight: Radius.circular(isUser ? 4 : 14),
+                          ),
+                          border: Border.all(
+                              color: AppColors.blackAccent, width: 2.5),
+                          boxShadow: const [
+                            BoxShadow(
+                                color: AppColors.blackAccent,
+                                offset: Offset(3, 3))
+                          ],
                         ),
-                        border: Border.all(color: state.textColor, width: 2.5),
-                        boxShadow: [BoxShadow(color: state.textColor.withOpacity(0.1), offset: const Offset(4, 4))],
-                      ),
-                      child: Text(
-                        msg['text'],
-                        style: GoogleFonts.inter(
-                          color: isUser ? Colors.white : state.textColor,
-                          fontWeight: FontWeight.w700,
-                          height: 1.4,
-                          fontSize: 15
+                        child: Text(
+                          msg['text'],
+                          style: GoogleFonts.inter(
+                              color: isUser ? Colors.white : AppColors.textDark,
+                              fontWeight: FontWeight.w700,
+                              height: 1.4,
+                              fontSize: 14),
                         ),
                       ),
-                    ),
-                  );
-                },
+                    );
+                  },
+                ),
               ),
             ),
-            
+
             if (_isTyping)
-               Padding(
-                padding: const EdgeInsets.only(left: 24, bottom: 8),
-                child: Align(alignment: Alignment.centerLeft, child: Text("Fittie is typing...", style: GoogleFonts.inter(fontSize: 12, color: AppColors.textSoft, fontStyle: FontStyle.italic))),
+              Padding(
+                padding: const EdgeInsets.only(left: 20, bottom: 8),
+                child: Align(
+                    alignment: Alignment.centerLeft,
+                    child: Text("Fittie is typing...",
+                        style: GoogleFonts.inter(
+                            fontSize: 12,
+                            color: AppColors.textSoft,
+                            fontWeight: FontWeight.w700,
+                            fontStyle: FontStyle.italic))),
               ),
-              
+
             Container(
-              padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+              padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
               decoration: BoxDecoration(
-                color: state.surfaceColor,
-                borderRadius: const BorderRadius.vertical(bottom: Radius.circular(30)),
-                border: Border(top: BorderSide(color: state.textColor, width: 2)),
+                color: Colors.white,
+                borderRadius:
+                    const BorderRadius.vertical(bottom: Radius.circular(12)),
+                border: const Border(
+                    top:
+                        BorderSide(color: AppColors.blackAccent, width: 2.5)),
               ),
               child: Row(
                 children: [
                   Expanded(
                     child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      padding: const EdgeInsets.symmetric(horizontal: 14),
                       decoration: BoxDecoration(
                         color: AppColors.bgCream,
-                        borderRadius: BorderRadius.circular(24),
-                        border: Border.all(color: state.textColor, width: 2),
+                        borderRadius: BorderRadius.circular(14),
+                        border:
+                            Border.all(color: AppColors.blackAccent, width: 2),
                       ),
                       child: TextField(
                         controller: _msgCtrl,
-                        decoration: const InputDecoration(hintText: "Need advice?", border: InputBorder.none),
-                        style: GoogleFonts.inter(fontWeight: FontWeight.bold, fontSize: 14),
+                        decoration: InputDecoration(
+                            hintText: "Need advice?",
+                            border: InputBorder.none,
+                            hintStyle: GoogleFonts.inter(
+                                color: AppColors.textSoft,
+                                fontWeight: FontWeight.w600)),
+                        style: GoogleFonts.inter(
+                            fontWeight: FontWeight.w700, fontSize: 14),
                         onSubmitted: (_) => _sendMessage(),
                       ),
                     ),
@@ -1197,11 +1616,17 @@ class _ChatPageState extends State<ChatPage> {
                       padding: const EdgeInsets.all(12),
                       decoration: BoxDecoration(
                         color: AppColors.primaryTeal,
-                        shape: BoxShape.circle,
-                        border: Border.all(color: state.textColor, width: 2),
-                        boxShadow: [BoxShadow(color: state.textColor, offset: const Offset(3, 3))],
+                        borderRadius: BorderRadius.circular(12),
+                        border:
+                            Border.all(color: AppColors.blackAccent, width: 2.5),
+                        boxShadow: const [
+                          BoxShadow(
+                              color: AppColors.blackAccent,
+                              offset: Offset(2, 2))
+                        ],
                       ),
-                      child: const Icon(Icons.send_rounded, color: Colors.white, size: 20),
+                      child: const Icon(Icons.send_rounded,
+                          color: Colors.white, size: 20),
                     ),
                   ),
                 ],
@@ -1277,28 +1702,40 @@ class _ProfilePageState extends State<ProfilePage> {
                 Container(
                   width: 100, height: 100,
                   decoration: BoxDecoration(
-                    color: state.surfaceColor,
-                    shape: BoxShape.circle,
-                    border: Border.all(color: state.textColor, width: 3),
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(color: AppColors.blackAccent, width: 2.5),
+                    boxShadow: const [
+                      BoxShadow(color: AppColors.blackAccent, offset: Offset(4, 4))
+                    ],
                   ),
-                  child: Icon(Icons.person, size: 50, color: state.textColor),
+                  child: const Icon(Icons.person, size: 50, color: AppColors.textDark),
                 ),
                 const SizedBox(height: 16),
-                Text(_name, style: GoogleFonts.inter(fontSize: 24, fontWeight: FontWeight.w900, color: state.textColor)),
-                Text(_email, style: GoogleFonts.inter(fontSize: 14, color: AppColors.textSoft)),
+                Text(_name, style: GoogleFonts.inter(fontSize: 24, fontWeight: FontWeight.w900, color: AppColors.textDark)),
+                const SizedBox(height: 4),
+                Text(_email, style: GoogleFonts.inter(fontSize: 14, color: AppColors.textSoft, fontWeight: FontWeight.w600)),
               ],
             ),
           ),
           const SizedBox(height: 32),
           Row(
             children: [
-              Expanded(child: _buildStatCard("Streak", "$_streak Days", Icons.local_fire_department_rounded, Colors.orange, state)),
+              Expanded(child: _buildStatCard("STREAK", "$_streak Days", Icons.local_fire_department_rounded, Colors.orange, state)),
               const SizedBox(width: 16),
-              Expanded(child: _buildStatCard("Workouts", "Active", Icons.fitness_center_rounded, AppColors.primaryTeal, state)),
+              Expanded(child: _buildStatCard("WORKOUTS", "Active", Icons.fitness_center_rounded, AppColors.primaryTeal, state)),
             ],
           ),
           const SizedBox(height: 32),
-          Text("SETTINGS", style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.textSoft, letterSpacing: 1.2)),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+            decoration: BoxDecoration(
+              color: AppColors.bgCream,
+              borderRadius: BorderRadius.circular(6),
+              border: Border.all(color: AppColors.blackAccent, width: 1.5),
+            ),
+            child: Text("SETTINGS", style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.w900, color: AppColors.textDark, letterSpacing: 1.2)),
+          ),
           const SizedBox(height: 16),
           _buildSettingsTile(
             Icons.person_outline, 
@@ -1335,18 +1772,26 @@ class _ProfilePageState extends State<ProfilePage> {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: state.surfaceColor,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: state.textColor, width: 2),
-        boxShadow: [BoxShadow(color: state.textColor, offset: const Offset(2, 2), blurRadius: 0)],
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: AppColors.blackAccent, width: 2.5),
+        boxShadow: const [BoxShadow(color: AppColors.blackAccent, offset: Offset(4, 4))],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(icon, color: color, size: 28),
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: color.withOpacity(0.12),
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: AppColors.blackAccent, width: 1.5),
+            ),
+            child: Icon(icon, color: color, size: 24),
+          ),
           const SizedBox(height: 12),
-          Text(value, style: GoogleFonts.inter(fontSize: 20, fontWeight: FontWeight.w900, color: state.textColor)),
-          Text(label, style: GoogleFonts.inter(fontSize: 12, color: AppColors.textSoft, fontWeight: FontWeight.w600)),
+          Text(value, style: GoogleFonts.inter(fontSize: 20, fontWeight: FontWeight.w900, color: AppColors.textDark)),
+          Text(label, style: GoogleFonts.inter(fontSize: 11, color: AppColors.textSoft, fontWeight: FontWeight.w900, letterSpacing: 0.8)),
         ],
       ),
     );
@@ -1356,19 +1801,37 @@ class _ProfilePageState extends State<ProfilePage> {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
         decoration: BoxDecoration(
-          color: state.surfaceColor,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: state.isDarkMode ? Colors.grey[700]! : Colors.grey.shade200, width: 1.5),
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: AppColors.blackAccent, width: 2.5),
+          boxShadow: const [
+            BoxShadow(color: AppColors.blackAccent, offset: Offset(3, 3))
+          ],
         ),
         child: Row(
           children: [
-            Icon(icon, color: state.textColor, size: 20),
-            const SizedBox(width: 16),
-            Text(title, style: GoogleFonts.inter(fontSize: 15, fontWeight: FontWeight.w600, color: state.textColor)),
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: AppColors.lightTeal.withOpacity(0.15),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: AppColors.blackAccent, width: 1.5),
+              ),
+              child: Icon(icon, color: AppColors.primaryTeal, size: 18),
+            ),
+            const SizedBox(width: 14),
+            Text(title.toUpperCase(), style: GoogleFonts.inter(fontSize: 14, fontWeight: FontWeight.w900, color: AppColors.textDark, letterSpacing: 0.5)),
             const Spacer(),
-            const Icon(Icons.arrow_forward_ios_rounded, size: 14, color: AppColors.textSoft),
+            Container(
+              padding: const EdgeInsets.all(4),
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(6),
+                border: Border.all(color: AppColors.blackAccent, width: 1.5),
+              ),
+              child: const Icon(Icons.arrow_forward_ios_rounded, size: 12, color: AppColors.textDark),
+            ),
           ],
         ),
       ),
@@ -1447,7 +1910,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
         backgroundColor: Colors.transparent,
         elevation: 0,
         leading: const BackButton(color: AppColors.textDark),
-        title: Text("Edit Profile", style: GoogleFonts.inter(fontWeight: FontWeight.bold, color: AppColors.textDark)),
+        title: Text("EDIT PROFILE", style: GoogleFonts.inter(fontWeight: FontWeight.w900, color: AppColors.textDark, letterSpacing: 0.5)),
       ),
       body: _isLoading 
         ? const Center(child: CircularProgressIndicator(color: AppColors.primaryTeal))
@@ -1457,13 +1920,13 @@ class _EditProfilePageState extends State<EditProfilePage> {
               key: _formKey,
               child: Column(
                 children: [
-                  _buildTextField("Name", _nameCtrl),
+                  _buildTextField("NAME", _nameCtrl),
                   const SizedBox(height: 16),
-                  _buildTextField("Age", _ageCtrl, isNumber: true),
+                  _buildTextField("AGE", _ageCtrl, isNumber: true),
                   const SizedBox(height: 16),
-                  _buildTextField("Weight (kg)", _weightCtrl),
+                  _buildTextField("WEIGHT (KG)", _weightCtrl),
                   const SizedBox(height: 16),
-                  _buildTextField("Height (cm)", _heightCtrl),
+                  _buildTextField("HEIGHT (CM)", _heightCtrl),
                   const SizedBox(height: 32),
                   SquishyButton(
                     text: "SAVE CHANGES",
@@ -1480,17 +1943,20 @@ class _EditProfilePageState extends State<EditProfilePage> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(label, style: GoogleFonts.inter(fontWeight: FontWeight.bold, fontSize: 14, color: AppColors.textDark)),
+        Text(label, style: GoogleFonts.inter(fontWeight: FontWeight.w900, fontSize: 11, color: AppColors.textDark, letterSpacing: 0.8)),
         const SizedBox(height: 8),
         TextFormField(
           controller: controller,
           keyboardType: isNumber ? TextInputType.number : TextInputType.text,
+          style: GoogleFonts.inter(fontWeight: FontWeight.w700, fontSize: 14),
           decoration: InputDecoration(
             filled: true,
             fillColor: Colors.white,
-            border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: const BorderSide(color: AppColors.textDark, width: 2)),
-            enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: const BorderSide(color: Colors.grey, width: 1)),
-            focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: const BorderSide(color: AppColors.primaryTeal, width: 2)),
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: const BorderSide(color: AppColors.blackAccent, width: 2.5)),
+            enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: const BorderSide(color: AppColors.blackAccent, width: 2.5)),
+            focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: const BorderSide(color: AppColors.primaryTeal, width: 2.5)),
+            errorBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: const BorderSide(color: AppColors.errorRed, width: 2.5)),
+            focusedErrorBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: const BorderSide(color: AppColors.errorRed, width: 2.5)),
           ),
           validator: (val) => val == null || val.isEmpty ? "Required" : null,
         ),
@@ -1511,38 +1977,38 @@ class SettingsPage extends StatelessWidget {
     final state = context.watch<AppState>();
 
     return Scaffold(
-      backgroundColor: state.backgroundColor,
+      backgroundColor: AppColors.bgCream,
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
-        leading: BackButton(color: state.textColor),
-        title: Text("App Settings", style: GoogleFonts.inter(fontWeight: FontWeight.bold, color: state.textColor)),
+        leading: const BackButton(color: AppColors.textDark),
+        title: Text("APP SETTINGS", style: GoogleFonts.inter(fontWeight: FontWeight.w900, color: AppColors.textDark, letterSpacing: 0.5)),
       ),
       body: ListView(
         padding: const EdgeInsets.all(24),
         children: [
           _buildToggle(
-            "Push Notifications", 
+            "PUSH NOTIFICATIONS", 
             state.notificationsEnabled, 
             (val) => context.read<AppState>().toggleNotifications(val),
             state
           ),
           const SizedBox(height: 16),
           _buildToggle(
-            "Sound Effects", 
+            "SOUND EFFECTS", 
             state.soundEnabled, 
             (val) => context.read<AppState>().toggleSound(val),
             state
           ),
           const SizedBox(height: 16),
           _buildToggle(
-            "Dark Mode", 
+            "DARK MODE", 
             state.isDarkMode, 
             (val) => context.read<AppState>().toggleDarkMode(val),
             state
           ),
           const SizedBox(height: 40),
-          Center(child: Text("Fittie v1.0.0", style: GoogleFonts.inter(color: AppColors.textSoft))),
+          Center(child: Text("FITTIE V1.0.0", style: GoogleFonts.inter(color: AppColors.textSoft, fontWeight: FontWeight.w900, fontSize: 11, letterSpacing: 1))),
         ],
       ),
     );
@@ -1551,12 +2017,15 @@ class SettingsPage extends StatelessWidget {
   Widget _buildToggle(String title, bool val, Function(bool) onChanged, AppState state) {
     return Container(
       decoration: BoxDecoration(
-        color: state.surfaceColor,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: state.isDarkMode ? Colors.grey[700]! : Colors.grey.shade200),
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: AppColors.blackAccent, width: 2.5),
+        boxShadow: const [
+          BoxShadow(color: AppColors.blackAccent, offset: Offset(3, 3))
+        ],
       ),
       child: SwitchListTile(
-        title: Text(title, style: GoogleFonts.inter(fontWeight: FontWeight.w600, color: state.textColor)),
+        title: Text(title, style: GoogleFonts.inter(fontWeight: FontWeight.w900, color: AppColors.textDark, fontSize: 13, letterSpacing: 0.5)),
         value: val,
         activeColor: AppColors.primaryTeal,
         onChanged: onChanged,
@@ -1580,14 +2049,17 @@ class HelpPage extends StatelessWidget {
         backgroundColor: Colors.transparent,
         elevation: 0,
         leading: const BackButton(color: AppColors.textDark),
-        title: Text("Help & Support", style: GoogleFonts.inter(fontWeight: FontWeight.bold, color: AppColors.textDark)),
+        title: Text("HELP & SUPPORT", style: GoogleFonts.inter(fontWeight: FontWeight.w900, color: AppColors.textDark, letterSpacing: 0.5)),
       ),
       body: ListView(
         padding: const EdgeInsets.all(24),
         children: [
           _buildFaqItem("How do I earn streaks?", "Log your energy every day via the 'Edit' button in the Energy section. If you miss a 24-hour window, your streak resets to 1."),
+          const SizedBox(height: 12),
           _buildFaqItem("How are calories calculated?", "Fittie estimates energy expenditure at approximately 7 calories burned per minute of active workout time."),
+          const SizedBox(height: 12),
           _buildFaqItem("Can I change my physical profile?", "Yes! Navigate to Profile > Edit Profile to update your name, age, weight, and height at any time."),
+          const SizedBox(height: 12),
           _buildFaqItem("What are the different modes?", "Modes (Power, Zen, Desk) morph automatically based on your daily energy level to provide the best workout type."),
           const SizedBox(height: 30),
           SquishyButton(text: "CONTACT SUPPORT", onTap: () {}),
@@ -1597,14 +2069,28 @@ class HelpPage extends StatelessWidget {
   }
 
   Widget _buildFaqItem(String question, String answer) {
-    return ExpansionTile(
-      title: Text(question, style: GoogleFonts.inter(fontWeight: FontWeight.bold, color: AppColors.textDark)),
-      children: [
-        Padding(
-          padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-          child: Text(answer, style: GoogleFonts.inter(color: AppColors.textSoft)),
-        )
-      ],
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: AppColors.blackAccent, width: 2.5),
+        boxShadow: const [
+          BoxShadow(color: AppColors.blackAccent, offset: Offset(3, 3))
+        ],
+      ),
+      child: Theme(
+        data: ThemeData(dividerColor: Colors.transparent),
+        child: ExpansionTile(
+          tilePadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+          childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+          title: Text(question, style: GoogleFonts.inter(fontWeight: FontWeight.w900, color: AppColors.textDark, fontSize: 14)),
+          iconColor: AppColors.textDark,
+          collapsedIconColor: AppColors.textDark,
+          children: [
+            Text(answer, style: GoogleFonts.inter(color: AppColors.textSoft, fontWeight: FontWeight.w600, height: 1.5)),
+          ],
+        ),
+      ),
     );
   }
 }
@@ -1705,7 +2191,6 @@ class _SquishyButtonState extends State<SquishyButton> {
   bool _isPressed = false;
   @override
   Widget build(BuildContext context) {
-    final state = context.watch<AppState>(); 
     final bgColor = widget.color ?? AppColors.primaryTeal;
     final txtColor = widget.textColor ?? Colors.white;
     return GestureDetector(
@@ -1720,9 +2205,9 @@ class _SquishyButtonState extends State<SquishyButton> {
           padding: EdgeInsets.symmetric(horizontal: widget.isSmall ? 20 : 40, vertical: widget.isSmall ? 10 : 16),
           decoration: BoxDecoration(
             color: bgColor,
-            borderRadius: BorderRadius.circular(30),
-            border: Border.all(color: state.textColor, width: 2), 
-            boxShadow: _isPressed ? [] : [BoxShadow(color: state.textColor, offset: const Offset(0, 4), blurRadius: 0)],
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: AppColors.blackAccent, width: 2.5), 
+            boxShadow: _isPressed ? [] : const [BoxShadow(color: AppColors.blackAccent, offset: Offset(0, 4))],
           ),
           child: Text(widget.text.toUpperCase(), style: GoogleFonts.inter(color: txtColor, fontWeight: FontWeight.w900, fontSize: widget.isSmall ? 12 : 16, letterSpacing: 1.0)),
         ),
