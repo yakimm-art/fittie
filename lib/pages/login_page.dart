@@ -1,6 +1,5 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import '../services/firebase_service.dart';
 import 'signup_page.dart';
 import 'verify_email_page.dart'; // 🟢 ADDED

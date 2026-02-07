@@ -3,11 +3,9 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:cloud_firestore/cloud_firestore.dart'; 
 import 'package:intl/intl.dart'; 
-import 'dart:math';
 
 import '../providers/app_state.dart';
 import '../widgets/kawaii_bear.dart'; 
-import '../services/voice_service.dart';
 import '../services/firebase_service.dart';
 import '../services/ai_service.dart';
 import 'workout_session_page.dart';
@@ -218,7 +216,6 @@ class _HomePageState extends State<HomePage> {
   bool _isQuickLoading = false;
   double _localEnergyLevel = 50.0; 
   
-  List<double> _weeklyCalories = List.filled(7, 0.0);
   List<int> _loggedWeekdays = <int>[]; 
   double _todayCalories = 0;
   
@@ -341,7 +338,6 @@ class _HomePageState extends State<HomePage> {
     if (mounted) {
       setState(() {
         _currentStreak = streak;
-        _weeklyCalories = weeklyData;
         _loggedWeekdays = loggedDays;
         _todayCalories = weeklyData.isNotEmpty ? weeklyData.last : 0.0;
         _todaysBreakdown = breakdown;

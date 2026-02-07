@@ -512,10 +512,11 @@ class CTASection extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 80),
+      padding: const EdgeInsets.symmetric(vertical: 80),
       child: Center(
         child: Container(
           constraints: const BoxConstraints(maxWidth: AppDimensions.maxWidth),
+          margin: const EdgeInsets.symmetric(horizontal: 16),
           padding: const EdgeInsets.all(60),
           decoration: BoxDecoration(
             color: AppColors.primaryTeal,

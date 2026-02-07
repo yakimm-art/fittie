@@ -4,7 +4,6 @@ import 'package:flutter/material.dart';
 import 'package:audioplayers/audioplayers.dart';
 import '../services/firebase_service.dart';
 import '../widgets/kawaii_bear.dart'; 
-import 'dashboard_page.dart'; 
 import 'verify_email_page.dart'; // Make sure this import exists
 
 // --- THEME ---
