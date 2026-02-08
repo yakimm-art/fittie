@@ -111,41 +111,6 @@ class _PageHero extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Back button
-              GestureDetector(
-                onTap: () => Navigator.of(context).pop(),
-                child: MouseRegion(
-                  cursor: SystemMouseCursors.click,
-                  child: Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(12),
-                      border:
-                          Border.all(color: AppColors.borderBlack, width: 2.5),
-                      boxShadow: const [
-                        BoxShadow(
-                            color: AppColors.borderBlack, offset: Offset(3, 3))
-                      ],
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        const Icon(Icons.arrow_back_rounded,
-                            size: 18, color: AppColors.textDark),
-                        const SizedBox(width: 6),
-                        Text("Back",
-                            style: GoogleFonts.inter(
-                                fontSize: 13,
-                                fontWeight: FontWeight.w800,
-                                color: AppColors.textDark)),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 32),
               // Decorative bar
               Container(
                 width: 60,
@@ -362,7 +327,7 @@ class TapeStripDivider extends StatelessWidget {
   final Color color;
   const TapeStripDivider({
     super.key,
-    this.words = const ["ADAPTIVE", "AI-NATIVE", "BIO-AWARE", "REAL-TIME"],
+    this.words = const ["GEMINI 3", "AI-NATIVE", "VISION", "SMART CONTEXT"],
     this.color = AppColors.accentYellow,
   });
 

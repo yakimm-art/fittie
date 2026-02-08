@@ -47,6 +47,25 @@ class FirebaseService {
 
   User? get currentUser => _auth.currentUser;
 
+  /// Check if the current user has admin role
+  Future<bool> isAdmin() async {
+    final user = _auth.currentUser;
+    if (user == null) return false;
+    try {
+      final doc = await _firestore.collection('users').doc(user.uid).get();
+      if (!doc.exists) return false;
+      final data = doc.data()!;
+      return data['role'] == 'admin';
+    } catch (e) {
+      return false;
+    }
+  }
+
+  /// Set a user role (for admin setup)
+  Future<void> setUserRole(String uid, String role) async {
+    await _firestore.collection('users').doc(uid).update({'role': role});
+  }
+
   // ---------------------------------------------------------------------------
   // 2. USER PROFILE
   // ---------------------------------------------------------------------------
