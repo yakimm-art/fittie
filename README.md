@@ -1,11 +1,20 @@
-# Fittie - AI-Powered Adaptive Fitness Coach
+# 🐻 Fittie — AI-Powered Adaptive Fitness Coach
 
 [![Flutter](https://img.shields.io/badge/Flutter-3.6.0-02569B?logo=flutter)](https://flutter.dev)
 [![Gemini](https://img.shields.io/badge/Gemini-3.0%20Flash-4285F4?logo=google)](https://ai.google.dev)
-[![Firebase](https://img.shields.io/badge/Firebase-Enabled-FFCA28?logo=firebase)](https://firebase.google.com)
+[![Firebase](https://img.shields.io/badge/Firebase-Auth%20%2B%20Firestore-FFCA28?logo=firebase)](https://firebase.google.com)
+[![ElevenLabs](https://img.shields.io/badge/ElevenLabs-Voice%20AI-000000?logo=elevenlabs)](https://elevenlabs.io)
 [![License](https://img.shields.io/badge/License-Hackathon%20Project-green)](https://gemini3.devpost.com)
 
-Fittie is an intelligent fitness companion that generates personalized workout routines in real-time using Google Gemini 3. Unlike traditional fitness apps with static workout templates, Fittie adapts every session to your current energy levels, physical capabilities, stress state, and available equipment.
+> **Google DeepMind Gemini 3 Hackathon — February 2026**
+
+Fittie is an intelligent fitness companion that generates **personalized workout routines in real-time** using Google Gemini 3. Unlike traditional fitness apps with static workout templates, Fittie adapts every session to your current energy levels, physical capabilities, stress state, and available equipment — all wrapped in a bold **neo-brutalist** design language with a custom kawaii polar bear mascot.
+
+<div align="center">
+
+**No two workouts are ever the same.**
+
+</div>
 
 ---
 
@@ -14,12 +23,12 @@ Fittie is an intelligent fitness companion that generates personalized workout r
 - [Overview](#overview)
 - [Gemini 3 Integration](#gemini-3-integration)
 - [Key Features](#key-features)
+- [App Walkthrough](#app-walkthrough)
 - [Architecture](#architecture)
-- [Getting Started](#getting-started)
-- [How It Works](#how-it-works)
 - [Design Philosophy](#design-philosophy)
 - [Technology Stack](#technology-stack)
 - [Project Structure](#project-structure)
+- [Getting Started](#getting-started)
 - [Contributing](#contributing)
 - [Acknowledgments](#acknowledgments)
 
@@ -27,41 +36,40 @@ Fittie is an intelligent fitness companion that generates personalized workout r
 
 ## Overview
 
-Fittie addresses a fundamental problem in fitness: **one-size-fits-all workout plans don't account for daily fluctuations in energy, stress, and motivation.** The app introduces an energy-based adaptation system where users input their current state (0-100% energy level), and Gemini 3 generates a contextually appropriate workout that matches their capacity for that specific day.
+Fittie addresses a fundamental problem in fitness: **one-size-fits-all workout plans don't account for daily fluctuations in energy, stress, and motivation.**
 
-### The Problem We Solve
+### The Problem
 
-- Traditional fitness apps provide static routines that don't adapt to how you feel
+- Traditional fitness apps provide static routines that don't adapt to how you feel today
 - Generic plans ignore individual physical differences, injuries, and equipment constraints
 - Lack of real-time personalization leads to burnout or injury
-- Fitness advice often feels robotic and disconnected
+- Fitness advice often feels robotic and disconnected from your actual progress
 
 ### Our Solution
 
-Fittie uses Gemini 3's advanced language understanding and structured output capabilities to:
+Fittie introduces an **energy-based adaptation system** — users log their current energy level (0–100%), and Gemini 3 generates a contextually appropriate workout matched to their exact capacity that day. The app uses three Gemini models simultaneously:
 
-1. **Analyze user context** - Age, weight, height, energy level, stress, injuries, and equipment
-2. **Generate dynamic workouts** - Every session is uniquely tailored with accurate calorie calculations using MET (Metabolic Equivalent of Task) values
-3. **Provide intelligent coaching** - Conversational AI that remembers your history and adapts advice over time
-4. **Ensure safety and progression** - Respects injuries and physical limitations while promoting growth
+1. **Workout Generator** (JSON mode) — Structured exercise generation with MET-based calorie math
+2. **Chat Coach** (conversational) — Persistent AI companion with full workout history context
+3. **Vision Analyzer** (multimodal) — Photograph your gym, get equipment-aware workouts
 
 ---
 
 ## Gemini 3 Integration
 
-Fittie is built entirely around Gemini 3 Flash, leveraging its capabilities across multiple features:
+Fittie leverages **five distinct Gemini 3 capabilities** across its feature set:
 
 ### 1. Long Context Window — Workout History Intelligence
 
-Fittie utilizes Gemini's **long context window** to remember a user's **entire workout history** (up to 50 past sessions) and suggest long-term progressions. Before each workout generation, the app fetches the full training history from Firestore and feeds it into Gemini as structured context:
+Before each workout generation, Fittie loads the user's **entire workout history** (up to 50 past sessions) from Firestore and feeds it into Gemini as structured context:
 
-- **Muscle group frequency analysis** — identifies which muscles are overtrained or neglected
-- **Exercise intensity trends** — tracks whether the user is IMPROVING, STABLE, or DECREASING
-- **Plateau prevention** — Gemini detects stagnation patterns and injects variation
-- **Missed day handling** — adjusts intensity after rest periods
+- **Muscle group frequency analysis** — Identifies overtrained or neglected muscle groups
+- **Exercise intensity trends** — Tracks IMPROVING, STABLE, or DECREASING patterns
+- **Plateau prevention** — Detects stagnation and injects variation automatically
+- **Missed day handling** — Adjusts intensity after rest periods
+- **Progressive overload** — Gradually increases difficulty based on historical trends
 
 ```dart
-// Gemini receives full workout history context
 final workoutHistory = await _firebaseService.getWorkoutHistorySummary(maxWorkouts: 50);
 final prompt = '''
 WORKOUT HISTORY:
@@ -71,21 +79,19 @@ PROGRESSION RULES:
 - If a muscle group was trained 3+ times this week, reduce its volume
 - If intensity has been DECREASING, introduce easier variations
 - If user missed 3+ days, start with a lighter warm-up session
-...
 ''';
 ```
 
-This means every workout builds on what came before — no two sessions repeat the same pattern, and the AI coach genuinely tracks your progress over weeks and months.
+Every workout builds on what came before — the AI coach genuinely tracks your progress over weeks and months.
 
 ### 2. Multimodal Vision — Gym Equipment Scanner
 
-Fittie uses Gemini 3's **vision capabilities** to analyze photos of the user's home gym or workout space. Users can upload a photo, and Gemini identifies all available equipment and builds a workout around it:
+Users upload a photo of their gym or workout space, and Gemini Vision identifies all available equipment and generates a workout around it:
 
-**How it works:**
-1. User takes a photo of their gym/equipment
-2. Gemini Vision analyzes the image and returns structured JSON with detected equipment
-3. The equipment list is fed into the workout generator as additional context
-4. A fully personalized workout is generated using only the detected equipment
+1. User photographs their gym/equipment
+2. Gemini Vision returns structured JSON with detected equipment, confidence scores, and space assessment
+3. Equipment list feeds directly into the workout generator as additional context
+4. A fully personalized routine uses **only** the detected equipment
 
 ```json
 {
@@ -94,21 +100,18 @@ Fittie uses Gemini 3's **vision capabilities** to analyze photos of the user's h
     {"name": "Adjustable Dumbbells", "confidence": "high", "notes": "5-50lb range visible"},
     {"name": "Pull-up Bar", "confidence": "high", "notes": "Door-mounted"}
   ],
-  "space_assessment": "Small home gym, approximately 8x10ft",
-  "summary": "Well-equipped home setup suitable for full-body strength training"
+  "space_assessment": "Small home gym, approximately 8x10ft"
 }
 ```
 
-This solves the common problem of users not knowing what exercises they can do with the equipment they have.
-
 ### 3. Persistent Chat Memory with Context Replay
 
-The Fittie AI chatbot **remembers previous conversations** across sessions using Firebase-backed chat persistence and Gemini's ChatSession API:
+The Fittie AI chatbot **remembers previous conversations** across sessions:
 
-- **Chat history saved to Firestore** — messages persist across app restarts
-- **Context replay on init** — the last 40 messages are replayed into Gemini's ChatSession so it remembers what was discussed
-- **User profile injection** — each chat session starts with the user's fitness profile (name, age, weight, goals, injuries, streak)
-- **Workout history awareness** — the chatbot knows your recent training load and can give advice accordingly
+- **Chat history saved to Firestore** — Messages persist across app restarts
+- **Context replay** — Last 40 messages replayed into each new Gemini ChatSession
+- **User profile injection** — Every session starts with the user's name, age, weight, goals, injuries, and streak
+- **Workout-aware advice** — The chatbot references your actual recent training data
 
 ```
 User: "My knees have been sore since Tuesday's workout"
@@ -117,26 +120,10 @@ intensity. Let's skip lower body today and focus on upper body and core.
 I'll also reduce squat volume in your next 2 sessions."
 ```
 
-The chatbot doesn't just respond to the current message — it has full context of your fitness journey.
+### 4. Structured JSON Output — Dynamic Workout Generation
 
-### 4. Dynamic Workout Generation
+Every workout request returns strictly structured JSON, parsed and validated by the app:
 
-Every workout request triggers a Gemini API call that processes:
-
-**Input Context:**
-- User physicals: age, weight, height
-- Current state: energy percentage (0-100%), stress level
-- Constraints: injuries, available equipment, special notes
-- History: past workouts, preferences
-
-**Gemini Processing:**
-- Analyzes user profile using advanced language understanding
-- Selects appropriate exercises from an 800+ exercise knowledge base
-- Calculates realistic calorie burns using MET values and user weight
-- Assigns intensity levels (1-10) and muscle group targeting
-- Generates motivational instructions in the "Fittie bear" personality
-
-**Structured Output:**
 ```json
 [
   {
@@ -151,309 +138,246 @@ Every workout request triggers a Gemini API call that processes:
 ]
 ```
 
-Gemini's JSON output mode ensures consistent, parseable responses that integrate seamlessly with the app's UI.
+Calorie calculations use **MET (Metabolic Equivalent of Task) values** combined with the user's weight for scientifically accurate estimates.
 
-### 5. Conversational AI Coaching
+### 5. Adaptive Energy Modes
 
-The chat feature uses Gemini to provide:
+Gemini categorizes daily energy into three workout modes:
 
-- Real-time fitness advice and form corrections
-- Motivational support tailored to user personality
-- Contextual responses based on conversation history
-- Biomechanical explanations in accessible language
+| Mode | Energy | Style |
+|------|--------|-------|
+| **Power** 🔴 | 70–100% | High-intensity cardio and strength training |
+| **Zen** 🟢 | 30–69% | Moderate yoga, stretching, balanced workouts |
+| **Desk** 🔵 | 0–29% | Gentle stretches and desk-friendly mobility work |
 
-**Example Interaction:**
-```
-User: "My shoulder hurts after yesterday's workout"
-Fittie (Gemini): "Oh no! 🐻 Let's take care of that shoulder. Avoid overhead 
-movements for 2-3 days. Try gentle arm circles and ice for 15 mins. Want me 
-to generate a lower-body focused workout today instead?"
-```
-
-### 6. Adaptive Mode Selection
-
-Gemini assists in categorizing daily energy into three modes:
-
-- **Power Mode** (70-100% energy): High-intensity cardio and strength training
-- **Zen Mode** (40-69% energy): Moderate yoga, stretching, and balanced workouts
-- **Desk Mode** (0-39% energy): Gentle stretches and mobility work suitable for desk breaks
+The entire UI dynamically morphs — colors, gradients, mascot messages, and voice tone all adapt to the active mode.
 
 ---
 
 ## Key Features
 
-### Long Context Workout Intelligence
-- **Full history awareness:** Gemini processes up to 50 past workouts to detect patterns
-- **Progression tracking:** Automatic identification of IMPROVING, STABLE, or DECREASING trends
-- **Plateau prevention:** AI injects exercise variation when it detects stagnation
-- **Muscle balance:** Frequency analysis prevents overtraining specific muscle groups
+### 🏋️ AI Workout Engine
+- **Real-time generation** — No templates, every workout is uniquely generated by Gemini 3
+- **800+ exercise database** — Matched with visual GIF demonstrations from [free-exercise-db](https://github.com/yuhonas/free-exercise-db)
+- **Multi-tier exercise matching** — Synonym map (200+ entries) → exact match → substring → token intersection scoring
+- **Fallback safety** — Curated offline routines if API calls fail
+- **Daily limit** — Max 3 workouts per day to prevent overtraining
 
-### Multimodal Gym Scanner (Vision)
-- **Photo-based equipment detection:** Upload a photo of your gym, Gemini identifies equipment
-- **Space assessment:** AI evaluates available workout space from the image
-- **Equipment-aware workouts:** Generated routines use only detected equipment
-- **Confidence scoring:** Each detected item includes reliability rating
+### 📸 Gym Photo Scanner (Gemini Vision)
+- **Photo-based equipment detection** with confidence scoring
+- **Space assessment** — AI evaluates available floor space from the image
+- **End-to-end pipeline** — Photo → equipment list → personalized workout in one flow
 
-### Persistent Chat Memory
-- **Cross-session memory:** Chat history persists in Firestore across app restarts
-- **Context replay:** Last 40 messages replayed into each new Gemini session
-- **Profile-aware responses:** AI knows your name, goals, injuries, and streak
-- **Workout-informed advice:** Chatbot references your recent training data
+### 💬 Persistent AI Chat Coach
+- **Cross-session memory** — Chat history persisted to Firestore
+- **40-message context replay** into each new Gemini session
+- **Profile-aware** — Knows your name, goals, injuries, streak, and recent workouts
+- **"Fittie the Bear" persona** — Energetic, supportive, emoji-rich coaching style
 
-### Adaptive Workout Engine
-- **Real-time generation:** No pre-built templates, every workout is fresh
-- **MET-based calorie calculations:** Accurate energy expenditure estimates based on user weight and exercise intensity
-- **Exercise database integration:** 800+ exercises with visual demonstrations
-- **Fallback safety:** Curated fallback routines if API calls fail
+### 🎙️ Voice Coach (ElevenLabs + Gemini)
+- **ElevenLabs TTS** (`eleven_turbo_v2_5`) for natural voice narration during workouts
+- **Mode-adaptive voice** — Energetic (Power), calm (Zen), balanced (Desk)
+- **In-memory audio cache** to minimize API calls
+- **Automatic fallback** to browser/native TTS if quota is exceeded
+- Exercise preview announcements: *"Get ready for Push Ups!"*
 
-### Intelligent User Profiling
-- **Physical stats tracking:** Age, weight, height for personalized calculations
-- **Injury awareness:** Gemini excludes contraindicated movements
-- **Equipment adaptation:** Workouts adjust based on available equipment (bodyweight, dumbbells, resistance bands, etc.)
-- **Stress monitoring:** Baseline stress tracking influences workout intensity
+### 🔥 Gamification & Motivation
+- **Duolingo-style streak calendar** — 7-day tracker with gold squares for logged days
+- **Daily mood/energy check-in** — Emoji face slider for accountability
+- **Calorie burn tracking** — Session totals and historical stats
+- **Custom kawaii polar bear mascot** — Animated (`CustomPaint`), blinks, breathes, talks with mouth animation during signup audio
 
-### Gamification & Motivation
-- **Duolingo-style streaks:** Visual 7-day streak calendar with gold squares for logged days
-- **Energy logging:** Daily check-ins create accountability
-- **Progress visualization:** Calorie burn history and workout completion tracking
-- **Mascot personality:** "Fittie the bear" provides encouragement and guidance
+### 📝 Community Blog System
+- **User blog submissions** — Title, rich content, category tags (Training Tips, Nutrition, Progress Update, Feature Idea, Community)
+- **Admin approval workflow** — Posts submit as "pending", admins approve/reject with confirmation
+- **Blog detail pages** — Full-content view with author info, timestamps, tag chips
+- **Role-based visibility** — Non-admins see only approved posts; admins see all including pending with yellow badges
 
-### Neo-Brutalist Design System
-- **Accessibility-first:** High contrast, bold borders, and clear typography
-- **No blur shadows:** Hard offset shadows for depth without visual clutter
-- **Consistent spacing:** 14px border radius across all UI elements
-- **Uppercase headers:** Strong visual hierarchy with bold (w900) typography
+### 🔐 Authentication & Onboarding
+- **5-step animated signup wizard** with mascot audio narration at each step:
+  1. Name, email, password
+  2. Age, weight, height
+  3. Stress level slider, activity level
+  4. Equipment, injuries, goals (multi-select)
+  5. Extra notes/preferences
+- **Email verification** with auto-polling (3s interval) and resend cooldown
+- **Remember Me** toggle — Firebase persistence switches between `LOCAL` and `SESSION`
+- **Role-based access** — Users get `role: 'user'` on signup; admins set via Firestore
+
+### 🖥️ Marketing Landing Site
+- **8 public pages** with shared `BrutalistPageShell` layout:
+  - **Landing** — Animated hero, feature cards, philosophy section, step-by-step flow, CTA, footer
+  - **Features** — How it works (4-step), full feature list, tech stack comparison
+  - **About** — Mission, numbers banner (1,200+ beta testers, 6 countries), values, timeline, team
+  - **Blog** — Community posts feed with approval workflow
+  - **Community** — Open source focus, 6 ways to contribute, FAQ
+  - **Careers** — Open roles (Flutter Engineer, ML Engineer, Designer, etc.), perks
+  - **Help Center** — Searchable categories (Getting Started, AI & Flows, Voice Coach, etc.)
+  - **Voice Coach** / **Morphic UI** — Concept pages for voice AI and biometric-adaptive UI
+
+---
+
+## App Walkthrough
+
+### 1. Onboarding
+
+New users complete a **5-step animated wizard** guided by the kawaii polar bear mascot (with audio narration). Each step collects progressively more detailed fitness data — from basics (name, email) through physical stats (age, weight, height) to fitness context (equipment, injuries, goals). Accent colors cycle through teal → purple → orange → yellow → pink per step.
+
+### 2. Dashboard
+
+The main app has **4 tabs** with a responsive layout (sidebar on web, bottom nav on mobile):
+
+| Tab | Purpose |
+|-----|---------|
+| **Home** | Greeting, mood check-in, streak calendar, energy slider, calorie stats, weekly activity chart, today's workout breakdown |
+| **Workouts** | "Start Flow" (AI workout), "Scan My Gym" (Gemini Vision), workout history (last 7 days) |
+| **Chat** | Persistent AI chat with Fittie Agent, typing indicators, message history |
+| **Profile** | Avatar (editable), stats, Edit Profile / Settings / Help sub-pages, logout |
+
+### 3. Workout Session
+
+When a user starts a workout:
+
+1. **Exercise count selection** — Choose number of exercises (default 5)
+2. **AI generation** — Loading screen while Gemini creates the routine
+3. **Preview phase** — 10-second countdown per exercise with voice announcement and GIF demo
+4. **Active phase** — Timed execution with progress bar, exercise visual, calorie counter
+5. **Controls** — Pause/play, skip to next
+6. **Completion** — Total duration, total calories, exercise count logged to Firestore with celebration dialog
+
+### 4. Progress Tracking
+
+- **7-day streak calendar** with gold/grey squares
+- **Calorie burn history** across all sessions
+- **Workout history** with intensity levels and timestamps
+- **AI chat** that references your actual progress data
 
 ---
 
 ## Architecture
-
-### System Design
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
 │                         Flutter App                          │
 ├─────────────────────────────────────────────────────────────┤
 │  ┌──────────────┐  ┌──────────────┐  ┌─────────────────┐   │
-│  │              │  │              │  │                 │   │
 │  │  UI Layer    │  │  State Mgmt  │  │   Services      │   │
-│  │  (Widgets)   │  │  (Provider)  │  │   Layer         │   │
-│  │              │  │              │  │                 │   │
+│  │  (27 files)  │  │  (Provider)  │  │   Layer         │   │
+│  │  Pages +     │  │  AppState    │  │  AI, Firebase,  │   │
+│  │  Widgets     │  │  (Morphic)   │  │  Voice          │   │
 │  └──────┬───────┘  └──────┬───────┘  └────┬───┬────┬──┘   │
 │         │                 │                │   │    │      │
 │         └─────────────────┴────────────────┘   │    │      │
 │                                                │    │      │
 └────────────────────────────────────────────────┼────┼──────┘
                                                  │    │
-                        ┌────────────────────────┘    │
-                        │                             │
-                        ▼                             ▼
-              ┌──────────────────┐         ┌──────────────────┐
-              │  Gemini 3 API    │         │  Firebase        │
-              │  ─────────────   │         │  ─────────────   │
-              │  - Workout Gen   │         │  - Auth          │
-              │  - Chat Coach    │         │  - Firestore     │
-              │  - Vision (Gym)  │         │  - User Data     │
-              │  - Long Context  │         │  - Chat History  │
-              │  - JSON Output   │         │  - Workout Logs  │
-              └──────────────────┘         └──────────────────┘
+              ┌──────────────────────────────────┘    │
+              │                    ┌──────────────────┘
+              ▼                    ▼
+   ┌──────────────────┐  ┌──────────────────┐  ┌────────────────┐
+   │  Gemini 3 Flash  │  │  Firebase        │  │  ElevenLabs    │
+   │  ─────────────   │  │  ─────────────   │  │  ─────────────  │
+   │  • Workout Gen   │  │  • Auth          │  │  • TTS Voice   │
+   │  • Chat Coach    │  │  • Firestore DB  │  │  • Mode-aware  │
+   │  • Vision (Gym)  │  │  • User Profiles │  │  • Audio Cache │
+   │  • JSON Output   │  │  • Chat History  │  │  • Fallback    │
+   │  • Long Context  │  │  • Workout Logs  │  │    to native   │
+   └──────────────────┘  │  • Blog Posts    │  └────────────────┘
+                         │  • Role Mgmt     │
+                         └──────────────────┘
 ```
 
 ### Data Flow
 
-1. **User Input** → Energy level, preferences, physical stats
-2. **Context Building** → App state aggregates user profile
-3. **Gemini Request** → Structured prompt with context sent to Gemini 3 Flash
-4. **Response Processing** → JSON parsed, validated, and enhanced with visuals
-5. **UI Rendering** → Workout cards displayed with animations
-6. **Firebase Sync** → User progress saved to Firestore
-
----
-
-## Getting Started
-
-### Prerequisites
-
-- **Flutter SDK:** Version 3.6.0 or higher
-- **Firebase Account:** For authentication and database
-- **Gemini API Key:** Obtain from [Google AI Studio](https://ai.google.dev/)
-- **Platform:** Web (Chrome), Android, iOS, or desktop
-
-### Installation
-
-1. **Clone the repository:**
-   ```bash
-   git clone https://github.com/yakimm-art/fittie.git
-   cd fittie
-   ```
-
-2. **Install dependencies:**
-   ```bash
-   flutter pub get
-   ```
-
-3. **Configure environment variables:**
-   ```bash
-   cp .env.example .env
-   ```
-   
-   Edit `.env` and add your API keys:
-   ```env
-   GEMINI_API_KEY=your_gemini_api_key_here
-   GIPHY_API_KEY=your_giphy_api_key_here (optional)
-   ```
-
-4. **Set up Firebase:**
-   - Create a Firebase project at [console.firebase.google.com](https://console.firebase.google.com)
-   - Enable Authentication (Email/Password)
-   - Enable Firestore Database
-   - Download configuration files:
-     - `google-services.json` for Android → `/android/app/`
-     - `GoogleService-Info.plist` for iOS → `/ios/Runner/`
-
-5. **Run the app:**
-   ```bash
-   # Web
-   flutter run -d chrome --web-port 8080
-   
-   # Android
-   flutter run -d android
-   
-   # iOS
-   flutter run -d ios
-   ```
-
----
-
-## How It Works
-
-### 1. User Onboarding
-
-New users complete a signup flow that collects:
-- **Name and email** for authentication
-- **Age, weight, height** for calorie calculations
-- **Fitness goals** and preferences
-- **Injury history** and equipment availability
-
-This data is stored in Firebase Firestore and used by Gemini for personalized workout generation.
-
-### 2. Daily Energy Check-In
-
-Each day, users log their energy level on a 0-100% scale:
-
-- **0-39%:** Desk Mode - Gentle stretches, mobility work
-- **40-69%:** Zen Mode - Moderate yoga, balanced training
-- **70-100%:** Power Mode - High-intensity cardio, strength training
-
-This energy value is the primary input for Gemini's workout algorithm.
-
-### 3. AI Workout Generation
-
-When a user requests a workout:
-
-**Step 1:** App constructs a detailed prompt for Gemini
-```dart
-final prompt = '''
-USER PROFILE:
-- Energy: 85% | Mode: Power
-- Physicals: Age 28, Weight 70kg, Height 175cm
-- Stress Level: 45/100
-- Injuries: Lower back sensitivity
-- Equipment: Dumbbells, Resistance Bands
-
-TASK: Create a 6-exercise workout routine.
-RULES: 
-- Avoid exercises that strain the lower back
-- Use available equipment where appropriate
-- Calculate calories using MET values and user weight
-- Assign intensity levels 1-10
-''';
-```
-
-**Step 2:** Gemini processes the request and returns structured JSON
-
-**Step 3:** App validates response and fetches visual demonstrations from the exercise database
-
-**Step 4:** Workout is displayed with:
-- Exercise previews (10-second demo phase)
-- Duration timers
-- Calorie counters
-- Instruction overlays
-
-### 4. Workout Execution
-
-During the workout session:
-- **Preview phase:** 10 seconds to view exercise demonstration
-- **Active phase:** Timed execution with visual progress
-- **Rest periods:** Countdown between exercises
-- **Completion:** Calories burned and stats logged to Firebase
-
-### 5. Progress Tracking
-
-The dashboard displays:
-- **Streak calendar:** Last 7 days with gold squares for logged days
-- **Total calories:** Sum of all burned calories
-- **Workout history:** Past sessions with intensity levels
-- **AI chat:** Conversational coaching and advice
+1. **User Input** → Energy level, mood, preferences, physical stats
+2. **Context Building** → AppState aggregates profile + 50-workout history + equipment
+3. **Gemini Request** → Structured prompt with full context sent to Gemini 3 Flash
+4. **Response Processing** → JSON parsed → exercises matched to visual DB (multi-tier matching)
+5. **UI Rendering** → Neo-brutalist workout cards with GIF demos and animations
+6. **Voice Narration** → ElevenLabs TTS announces each exercise preview
+7. **Firebase Sync** → Session results, streak, chat history persisted to Firestore
 
 ---
 
 ## Design Philosophy
 
-### Neo-Brutalism Principles
+### Neo-Brutalism
 
-Fittie's UI is inspired by the neo-brutalist design movement, characterized by:
+Fittie's entire UI follows the **neo-brutalist design movement**:
 
-**Visual Elements:**
-- **Hard shadows:** Offset shadows with no blur (e.g., `BoxShadow(offset: Offset(4, 4), blurRadius: 0)`)
-- **Thick borders:** 2.5px black borders on all cards and buttons
-- **Consistent radius:** 14px corner rounding (never fully rounded pills)
-- **Bold typography:** Font weight 900 (w900) for headers and labels
+| Element | Specification |
+|---------|---------------|
+| Borders | 2.5–3px solid black on all cards and buttons |
+| Shadows | Hard offset (4–8px), **zero blur** |
+| Radius | 14px corners (never fully rounded pills) |
+| Typography | Inter font, weight 700–900, uppercase headers |
+| Background | Cream `#FDFBF7` with subtle dot-grid patterns |
+| Accent Colors | Teal `#38B2AC`, Orange, Purple, Pink, Gold `#FBBF24` |
+| Texture | Grain overlay on all pages for depth |
 
-**Color Palette:**
-```dart
-class AppColors {
-  static const bgCream = Color(0xFFFDFBF7);      // Background
-  static const primaryTeal = Color(0xFF38B2AC);  // Primary actions
-  static const textDark = Color(0xFF2D3748);     // Primary text
-  static const blackAccent = Color(0xFF000000);  // Borders & shadows
-  static const streakGold = Color(0xFFFBBF24);   // Streak indicators
-  static const errorRed = Color(0xFFEF4444);     // Errors & warnings
-}
-```
+### Morphic Engine
 
-**Accessibility:**
-- High contrast ratios (WCAG AAA compliant)
-- Clear visual hierarchy
-- Touch targets minimum 44x44px
-- Screen reader support
+The UI dynamically morphs based on the user's energy mode:
+- **Power Mode** — Red-tinged gradients, energetic mascot messages, fast voice
+- **Zen Mode** — Green-tinged gradients, calm mascot, slow stable voice  
+- **Desk Mode** — Teal-tinged, balanced mascot, moderate voice
+
+### Accessibility
+- High contrast ratios (WCAG AAA targets)
+- Clear visual hierarchy with bold typography
+- Touch targets minimum 44×44px
+- Scroll-triggered `FadeSlideIn` entrance animations
+- `ClipRect` / `Clip.hardEdge` to prevent overflow during animations
+
+### Custom Mascot — Kawaii Polar Bear
+
+A fully hand-drawn `CustomPaint` animated polar bear that:
+- **Breathes** (idle bounce animation)
+- **Blinks** randomly
+- **Talks** (mouth opens/closes when `isTalking: true` during signup audio)
+- Holds dumbbells, has blush cheeks and teal accents
+- Appears across: signup, dashboard, verify email, workout completion, chat header
 
 ---
 
 ## Technology Stack
 
 ### Frontend
-- **Framework:** Flutter 3.6.0
-- **Language:** Dart
-- **State Management:** Provider
-- **Routing:** go_router 14.0.0
-- **Charts:** fl_chart 0.66.0
+| Package | Version | Purpose |
+|---------|---------|---------|
+| Flutter | 3.6.0 | Cross-platform framework |
+| Provider | 6.1.2 | State management |
+| go_router | 14.0.0 | Declarative routing with auth guards |
+| fl_chart | 0.66.0 | Weekly activity charts |
+| google_fonts | 6.2.1 | Inter typography |
 
-### Backend & Services
-- **AI:** google_generative_ai 0.4.0 (Gemini 3 Flash)
-- **Authentication:** firebase_auth 5.1.0
-- **Database:** cloud_firestore 5.0.0
-- **Environment:** flutter_dotenv 5.2.1
+### AI & Services
+| Package | Version | Purpose |
+|---------|---------|---------|
+| google_generative_ai | 0.4.0 | Gemini 3 Flash (workout gen, chat, vision) |
+| http | 1.2.0 | ElevenLabs TTS API calls |
+| flutter_tts | 4.2.5 | Native TTS fallback |
+| audioplayers | 6.0.0 | Audio playback (mascot voice, TTS) |
+| flutter_dotenv | 5.2.1 | Secure API key management |
 
-### UI & Media
-- **Typography:** google_fonts 6.2.1
-- **Audio:** audioplayers 6.0.0
-- **Image Picker:** image_picker 1.0.7 (for gym photo scanning)
-- **HTTP:** http 1.2.0
+### Backend
+| Package | Version | Purpose |
+|---------|---------|---------|
+| firebase_core | 3.1.0 | Firebase initialization |
+| firebase_auth | 5.1.0 | Auth with email verification |
+| cloud_firestore | 5.0.0 | User profiles, workouts, chat, blog |
+
+### Additional
+| Package | Purpose |
+|---------|---------|
+| image_picker | Gym photo capture for Gemini Vision |
+| url_launcher | External links |
+| intl | Date formatting |
 
 ### Assets
-- **Exercise Database:** 800+ exercises from [free-exercise-db](https://github.com/yuhonas/free-exercise-db)
-- **Visual Demos:** Curated Giphy library + local JSON database
+- **Exercise Database** — 800+ exercises from [free-exercise-db](https://github.com/yuhonas/free-exercise-db)
+- **Exercise Visuals** — GIF demonstrations matched via multi-tier name resolution
+- **Mascot Audio** — Step-by-step narration files for signup wizard
 
 ---
 
@@ -462,39 +386,112 @@ class AppColors {
 ```
 fittie/
 ├── lib/
-│   ├── main.dart                    # App entry point
-│   ├── pages/                       # UI screens
-│   │   ├── landing_page.dart        # Marketing landing page
-│   │   ├── login_page.dart          # Authentication
-│   │   ├── signup_page.dart         # Multi-step onboarding
-│   │   ├── dashboard_page.dart      # Main app dashboard
-│   │   ├── workout_session_page.dart # Active workout UI
-│   │   └── ...                      # Feature pages
-│   ├── services/                    # Business logic
-│   │   ├── ai_service.dart          # Gemini 3 integration
-│   │   ├── firebase_service.dart    # Firebase operations
-│   │   └── app_state.dart           # Global state management
-│   └── widgets/                     # Reusable components
+│   ├── main.dart                        # App entry point + AuthWrapper
+│   ├── nav.dart                         # GoRouter config with auth redirects
+│   ├── theme.dart                       # Material 3 theme, AppSpacing, AppRadius
+│   │
+│   ├── pages/
+│   │   ├── landing_page.dart            # Marketing hero, features, philosophy, CTA
+│   │   ├── features_page.dart           # How it works, full feature list
+│   │   ├── about_page.dart              # Mission, stats, values, timeline, team
+│   │   ├── community_page.dart          # Open source, contribute, FAQ
+│   │   ├── careers_page.dart            # Open roles & perks
+│   │   ├── help_center_page.dart        # Search, categories, FAQ, contact
+│   │   ├── voice_coach_page.dart        # Voice AI feature showcase
+│   │   ├── morphic_ui_page.dart         # Biometric-adaptive UI concept
+│   │   ├── brutalist_page_shell.dart    # Shared layout (header, footer, dots, grain)
+│   │   │
+│   │   ├── login_page.dart              # Auth + Remember Me toggle
+│   │   ├── signup_page.dart             # 5-step wizard with mascot audio
+│   │   ├── verify_email_page.dart       # Auto-polling email verification
+│   │   │
+│   │   ├── dashboard_page.dart          # 4-tab dashboard (Home/Workouts/Chat/Profile)
+│   │   ├── workout_session_page.dart    # Active workout: preview → active → complete
+│   │   │
+│   │   ├── blog_page.dart               # Blog feed with role-based visibility
+│   │   ├── blog_entry_page.dart         # Blog post submission form
+│   │   ├── blog_detail_page.dart        # Full post view + admin approve/reject
+│   │   └── blog_admin_page.dart         # Admin review panel for pending posts
+│   │
+│   ├── services/
+│   │   ├── ai_service.dart              # 3 Gemini models + exercise matching
+│   │   ├── firebase_service.dart        # Auth, Firestore, blog, roles
+│   │   └── voice_service.dart           # ElevenLabs TTS + native fallback
+│   │
+│   ├── providers/
+│   │   └── app_state.dart               # Morphic engine, mode management, settings
+│   │
+│   └── widgets/
+│       ├── kawaii_bear.dart              # CustomPaint animated polar bear mascot
+│       └── weekly_activity_chart.dart   # fl_chart weekly workout visualization
+│
 ├── assets/
-│   ├── data/
-│   │   └── exercises.json           # Exercise database
-│   ├── audio/                       # Mascot audio files
-│   └── app_icon.png                 # App icon
-├── android/                         # Android platform files
-├── ios/                             # iOS platform files
-├── web/                             # Web platform files
-├── .env.example                     # Environment template
-├── pubspec.yaml                     # Dependencies
-└── README.md                        # This file
+│   ├── data/exercises.json              # 800+ exercise database
+│   ├── audio/                           # Mascot voice narration files
+│   └── app_icon.png                     # App icon
+│
+├── android/                             # Android platform
+├── ios/                                 # iOS platform
+├── web/                                 # Web platform
+├── linux/                               # Linux desktop platform
+├── macos/                               # macOS desktop platform
+├── windows/                             # Windows desktop platform
+│
+├── pubspec.yaml                         # Dependencies & assets
+├── analysis_options.yaml                # Lint rules
+└── README.md                            # This file
 ```
+
+---
+
+## Getting Started
+
+### Prerequisites
+
+- **Flutter SDK** 3.6.0+
+- **Firebase project** with Auth (Email/Password) and Firestore enabled
+- **Gemini API Key** from [Google AI Studio](https://ai.google.dev/)
+- **ElevenLabs API Key** *(optional)* from [elevenlabs.io](https://elevenlabs.io) for voice coaching
+
+### Installation
+
+```bash
+# 1. Clone
+git clone https://github.com/yakimm-art/fittie.git
+cd fittie
+
+# 2. Install dependencies
+flutter pub get
+
+# 3. Configure environment
+cp .env.example .env
+# Edit .env:
+#   GEMINI_API_KEY=your_key_here
+#   ELEVENLABS_API_KEY=your_key_here (optional)
+
+# 4. Firebase setup
+# - Create project at console.firebase.google.com
+# - Enable Email/Password auth + Firestore
+# - Add google-services.json (Android) and/or GoogleService-Info.plist (iOS)
+
+# 5. Run
+flutter run -d chrome --web-port 8080   # Web
+flutter run -d android                   # Android
+flutter run -d ios                       # iOS
+```
+
+### Admin Setup
+
+To grant admin access (for blog approval, etc.):
+1. Open Firebase Console → Firestore → `users` collection
+2. Find the user document by UID
+3. Add/set field: `role` = `"admin"`
 
 ---
 
 ## Contributing
 
-This project was created for the Google DeepMind Gemini 3 Hackathon (February 2026). While it's primarily a hackathon submission, suggestions and feedback are welcome.
-
-### Development Setup
+This project was created for the **Google DeepMind Gemini 3 Hackathon** (February 2026). Suggestions and feedback are welcome!
 
 1. Follow the [Getting Started](#getting-started) instructions
 2. Create a feature branch: `git checkout -b feature/your-feature`
@@ -507,19 +504,16 @@ This project was created for the Google DeepMind Gemini 3 Hackathon (February 20
 ## Acknowledgments
 
 **Built With:**
-- [Google Gemini 3 Flash API](https://ai.google.dev/) - Core AI intelligence
-- [Flutter](https://flutter.dev/) - Cross-platform framework
-- [Firebase](https://firebase.google.com/) - Backend infrastructure
-- [free-exercise-db](https://github.com/yuhonas/free-exercise-db) - Exercise dataset
-- [Giphy API](https://developers.giphy.com/) - Exercise visual demonstrations
+- [Google Gemini 3 Flash](https://ai.google.dev/) — Core AI (workouts, chat, vision)
+- [Flutter](https://flutter.dev/) — Cross-platform framework
+- [Firebase](https://firebase.google.com/) — Auth, Firestore, hosting
+- [ElevenLabs](https://elevenlabs.io/) — Natural voice synthesis
+- [free-exercise-db](https://github.com/yuhonas/free-exercise-db) — Exercise dataset (800+ exercises)
 
-**Inspiration:**
-- Duolingo's streak system for gamification patterns
-- Neo-brutalism design movement for UI aesthetics
+**Design Inspiration:**
+- Neo-brutalism design movement
+- Duolingo's streak gamification
 - Modern fitness coaching methodologies
-
-**Submitted to:**
-- Google DeepMind Gemini 3 Hackathon (February 2026)
 
 ---
 
@@ -527,12 +521,12 @@ This project was created for the Google DeepMind Gemini 3 Hackathon (February 20
 
 This project is a hackathon submission and is provided as-is for educational and demonstration purposes.
 
-**Contact:** For questions about this project, please open an issue on GitHub.
-
 ---
 
 <div align="center">
-  <strong>Powered by Google Gemini 3 Flash</strong>
+  <strong>🐻 Powered by Google Gemini 3 Flash</strong>
   <br/>
-  Built with Flutter • Deployed with Firebase • Designed with Care
+  Built with Flutter • Firebase • ElevenLabs • Neo-Brutalism
+  <br/><br/>
+  <em>Google DeepMind Gemini 3 Hackathon — February 2026</em>
 </div>
