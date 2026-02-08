@@ -2,6 +2,7 @@ import 'dart:ui';
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'login_page.dart';
 import 'signup_page.dart';
 import 'features_page.dart';
@@ -606,7 +607,7 @@ class _HeroTextContent extends StatelessWidget {
         ),
         const SizedBox(height: 20),
         Text(
-          "Stop following generic plans. Fittie uses Gemini 3 to build workouts from your history, energy, and equipment—every session unique.",
+          "Stop following generic plans. Fittie uses Gemini 3 to build workouts from your history, energy, and equipment—adaptive for every body, mobility, and chronic condition.",
           textAlign: align,
           style: GoogleFonts.inter(
               fontSize: isMobile ? 16 : 18,
@@ -2389,7 +2390,7 @@ class _StatRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) =>
       Wrap(spacing: 24, runSpacing: 16, children: const [
-        _StatItem("<2s", "AI Generation", accentColor: AppColors.primaryTeal),
+        _StatItem("11+", "Conditions Supported", accentColor: Color(0xFF3B82F6)),
         _StatItem("50+", "Session Memory", accentColor: AppColors.accentOrange),
         _StatItem("24/7", "AI Coach", accentColor: AppColors.accentPurple),
       ]);
