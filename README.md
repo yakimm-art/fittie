@@ -51,7 +51,75 @@ Fittie uses Gemini 3's advanced language understanding and structured output cap
 
 Fittie is built entirely around Gemini 3 Flash, leveraging its capabilities across multiple features:
 
-### 1. Dynamic Workout Generation
+### 1. Long Context Window — Workout History Intelligence
+
+Fittie utilizes Gemini's **long context window** to remember a user's **entire workout history** (up to 50 past sessions) and suggest long-term progressions. Before each workout generation, the app fetches the full training history from Firestore and feeds it into Gemini as structured context:
+
+- **Muscle group frequency analysis** — identifies which muscles are overtrained or neglected
+- **Exercise intensity trends** — tracks whether the user is IMPROVING, STABLE, or DECREASING
+- **Plateau prevention** — Gemini detects stagnation patterns and injects variation
+- **Missed day handling** — adjusts intensity after rest periods
+
+```dart
+// Gemini receives full workout history context
+final workoutHistory = await _firebaseService.getWorkoutHistorySummary(maxWorkouts: 50);
+final prompt = '''
+WORKOUT HISTORY:
+$workoutHistory
+
+PROGRESSION RULES:
+- If a muscle group was trained 3+ times this week, reduce its volume
+- If intensity has been DECREASING, introduce easier variations
+- If user missed 3+ days, start with a lighter warm-up session
+...
+''';
+```
+
+This means every workout builds on what came before — no two sessions repeat the same pattern, and the AI coach genuinely tracks your progress over weeks and months.
+
+### 2. Multimodal Vision — Gym Equipment Scanner
+
+Fittie uses Gemini 3's **vision capabilities** to analyze photos of the user's home gym or workout space. Users can upload a photo, and Gemini identifies all available equipment and builds a workout around it:
+
+**How it works:**
+1. User takes a photo of their gym/equipment
+2. Gemini Vision analyzes the image and returns structured JSON with detected equipment
+3. The equipment list is fed into the workout generator as additional context
+4. A fully personalized workout is generated using only the detected equipment
+
+```json
+{
+  "equipment_list": ["Adjustable Dumbbells", "Pull-up Bar", "Yoga Mat", "Resistance Bands"],
+  "equipment_details": [
+    {"name": "Adjustable Dumbbells", "confidence": "high", "notes": "5-50lb range visible"},
+    {"name": "Pull-up Bar", "confidence": "high", "notes": "Door-mounted"}
+  ],
+  "space_assessment": "Small home gym, approximately 8x10ft",
+  "summary": "Well-equipped home setup suitable for full-body strength training"
+}
+```
+
+This solves the common problem of users not knowing what exercises they can do with the equipment they have.
+
+### 3. Persistent Chat Memory with Context Replay
+
+The Fittie AI chatbot **remembers previous conversations** across sessions using Firebase-backed chat persistence and Gemini's ChatSession API:
+
+- **Chat history saved to Firestore** — messages persist across app restarts
+- **Context replay on init** — the last 40 messages are replayed into Gemini's ChatSession so it remembers what was discussed
+- **User profile injection** — each chat session starts with the user's fitness profile (name, age, weight, goals, injuries, streak)
+- **Workout history awareness** — the chatbot knows your recent training load and can give advice accordingly
+
+```
+User: "My knees have been sore since Tuesday's workout"
+Fittie: "I noticed Tuesday's session had 3 leg-focused exercises at high
+intensity. Let's skip lower body today and focus on upper body and core.
+I'll also reduce squat volume in your next 2 sessions."
+```
+
+The chatbot doesn't just respond to the current message — it has full context of your fitness journey.
+
+### 4. Dynamic Workout Generation
 
 Every workout request triggers a Gemini API call that processes:
 
@@ -85,7 +153,7 @@ Every workout request triggers a Gemini API call that processes:
 
 Gemini's JSON output mode ensures consistent, parseable responses that integrate seamlessly with the app's UI.
 
-### 2. Conversational AI Coaching
+### 5. Conversational AI Coaching
 
 The chat feature uses Gemini to provide:
 
@@ -102,7 +170,7 @@ movements for 2-3 days. Try gentle arm circles and ice for 15 mins. Want me
 to generate a lower-body focused workout today instead?"
 ```
 
-### 3. Adaptive Mode Selection
+### 6. Adaptive Mode Selection
 
 Gemini assists in categorizing daily energy into three modes:
 
@@ -113,6 +181,24 @@ Gemini assists in categorizing daily energy into three modes:
 ---
 
 ## Key Features
+
+### Long Context Workout Intelligence
+- **Full history awareness:** Gemini processes up to 50 past workouts to detect patterns
+- **Progression tracking:** Automatic identification of IMPROVING, STABLE, or DECREASING trends
+- **Plateau prevention:** AI injects exercise variation when it detects stagnation
+- **Muscle balance:** Frequency analysis prevents overtraining specific muscle groups
+
+### Multimodal Gym Scanner (Vision)
+- **Photo-based equipment detection:** Upload a photo of your gym, Gemini identifies equipment
+- **Space assessment:** AI evaluates available workout space from the image
+- **Equipment-aware workouts:** Generated routines use only detected equipment
+- **Confidence scoring:** Each detected item includes reliability rating
+
+### Persistent Chat Memory
+- **Cross-session memory:** Chat history persists in Firestore across app restarts
+- **Context replay:** Last 40 messages replayed into each new Gemini session
+- **Profile-aware responses:** AI knows your name, goals, injuries, and streak
+- **Workout-informed advice:** Chatbot references your recent training data
 
 ### Adaptive Workout Engine
 - **Real-time generation:** No pre-built templates, every workout is fresh
@@ -167,7 +253,9 @@ Gemini assists in categorizing daily energy into three modes:
               │  ─────────────   │         │  ─────────────   │
               │  - Workout Gen   │         │  - Auth          │
               │  - Chat Coach    │         │  - Firestore     │
-              │  - JSON Output   │         │  - User Data     │
+              │  - Vision (Gym)  │         │  - User Data     │
+              │  - Long Context  │         │  - Chat History  │
+              │  - JSON Output   │         │  - Workout Logs  │
               └──────────────────┘         └──────────────────┘
 ```
 
@@ -360,6 +448,7 @@ class AppColors {
 ### UI & Media
 - **Typography:** google_fonts 6.2.1
 - **Audio:** audioplayers 6.0.0
+- **Image Picker:** image_picker 1.0.7 (for gym photo scanning)
 - **HTTP:** http 1.2.0
 
 ### Assets

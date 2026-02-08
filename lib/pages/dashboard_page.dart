@@ -1,9 +1,11 @@
 import 'dart:ui'; 
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:cloud_firestore/cloud_firestore.dart'; 
 import 'package:intl/intl.dart'; 
 import 'package:google_fonts/google_fonts.dart';
+import 'package:image_picker/image_picker.dart';
 
 import '../providers/app_state.dart';
 import '../widgets/kawaii_bear.dart'; 
@@ -1147,6 +1149,7 @@ class _WorkoutsPageState extends State<WorkoutsPage> {
   final _aiService = AiService();
   final _firebaseService = FirebaseService();
   bool _isLoading = false;
+  bool _isScanning = false;
 
   void _startAiSession(BuildContext context, AppState state) async {
     setState(() => _isLoading = true);
@@ -1204,6 +1207,132 @@ class _WorkoutsPageState extends State<WorkoutsPage> {
         setState(() => _isLoading = false);
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Error: $e")));
       }
+    }
+  }
+
+  /// Scan a photo of the user's gym/equipment using Gemini Vision
+  void _scanGymPhoto(BuildContext context, AppState state) async {
+    final picker = ImagePicker();
+    final XFile? image = await picker.pickImage(source: ImageSource.gallery, maxWidth: 1280, imageQuality: 80);
+    if (image == null) return;
+
+    setState(() => _isScanning = true);
+
+    try {
+      final Uint8List imageBytes = await image.readAsBytes();
+
+      // Show analysis dialog
+      if (!mounted) return;
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (ctx) => AlertDialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(14),
+            side: const BorderSide(color: AppColors.blackAccent, width: 2.5),
+          ),
+          title: Text("SCANNING YOUR GYM...", style: GoogleFonts.inter(fontWeight: FontWeight.w900, fontSize: 16)),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const CircularProgressIndicator(color: AppColors.primaryTeal),
+              const SizedBox(height: 16),
+              Text("Gemini is analyzing your equipment", style: GoogleFonts.inter(fontWeight: FontWeight.w600, color: AppColors.textSoft)),
+            ],
+          ),
+        ),
+      );
+
+      final analysis = await _aiService.analyzeGymPhoto(imageBytes);
+      
+      // Close loading dialog
+      if (mounted) Navigator.of(context).pop();
+
+      final equipment = analysis['equipment_list'] as List? ?? [];
+      final summary = analysis['summary'] as String? ?? 'Equipment detected';
+
+      if (!mounted) return;
+
+      // Show detected equipment and offer to start workout
+      final shouldStart = await showDialog<bool>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(14),
+            side: const BorderSide(color: AppColors.blackAccent, width: 2.5),
+          ),
+          title: Row(
+            children: [
+              const Icon(Icons.camera_alt, color: AppColors.primaryTeal),
+              const SizedBox(width: 8),
+              Text("EQUIPMENT FOUND", style: GoogleFonts.inter(fontWeight: FontWeight.w900, fontSize: 16)),
+            ],
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(summary, style: GoogleFonts.inter(fontWeight: FontWeight.w600, color: AppColors.textSoft, fontSize: 13)),
+              const SizedBox(height: 12),
+              ...equipment.take(8).map((e) => Padding(
+                padding: const EdgeInsets.only(bottom: 4),
+                child: Row(children: [
+                  const Icon(Icons.check_circle, size: 16, color: AppColors.primaryTeal),
+                  const SizedBox(width: 8),
+                  Expanded(child: Text(e.toString(), style: GoogleFonts.inter(fontWeight: FontWeight.w700, fontSize: 13))),
+                ]),
+              )),
+              if (equipment.length > 8)
+                Text("+ ${equipment.length - 8} more", style: GoogleFonts.inter(color: AppColors.textSoft, fontWeight: FontWeight.w600)),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: Text("CLOSE", style: GoogleFonts.inter(fontWeight: FontWeight.w900, color: AppColors.textSoft)),
+            ),
+            ElevatedButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.primaryTeal,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              ),
+              child: Text("BUILD FLOW", style: GoogleFonts.inter(fontWeight: FontWeight.w900, color: Colors.white)),
+            ),
+          ],
+        ),
+      );
+
+      if (shouldStart == true && mounted) {
+        // Build workout from the photo analysis 
+        Color themeColor = AppColors.primaryTeal;
+        if (state.energyLevel > 70) themeColor = AppColors.powerRed;
+        if (state.energyLevel < 30) themeColor = AppColors.zenGreen;
+
+        final userContext = {
+          'equipment': equipment.join(', '),
+          'injuries': 'None',
+          'goals': 'General Fitness',
+          'scannedGym': true,
+          'gymSummary': summary,
+        };
+
+        Navigator.push(context, MaterialPageRoute(builder: (context) => WorkoutSessionPage(
+          themeColor: themeColor,
+          userContext: userContext,
+          mode: state.mode.name,
+          energyLevel: state.energyLevel.toInt(),
+        )));
+      }
+    } catch (e) {
+      if (mounted) {
+        Navigator.of(context).pop(); // Close loading dialog if open
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text("Scan failed: $e"), backgroundColor: AppColors.errorRed),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isScanning = false);
     }
   }
 
@@ -1310,6 +1439,75 @@ class _WorkoutsPageState extends State<WorkoutsPage> {
                 ],
               ),
             ),
+            const SizedBox(height: 16),
+
+            // --- SCAN MY GYM BUTTON (Gemini Vision) ---
+            GestureDetector(
+              onTap: _isScanning ? null : () => _scanGymPhoto(context, state),
+              child: Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(color: AppColors.blackAccent, width: 2.5),
+                  boxShadow: const [
+                    BoxShadow(color: AppColors.blackAccent, offset: Offset(4, 4))
+                  ],
+                ),
+                child: Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: AppColors.primaryTeal.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(color: AppColors.blackAccent, width: 2),
+                        boxShadow: const [
+                          BoxShadow(color: AppColors.blackAccent, offset: Offset(2, 2))
+                        ],
+                      ),
+                      child: const Icon(Icons.camera_alt_rounded, size: 22, color: AppColors.primaryTeal),
+                    ),
+                    const SizedBox(width: 14),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(_isScanning ? "SCANNING..." : "SCAN MY GYM",
+                              style: GoogleFonts.inter(
+                                  fontWeight: FontWeight.w900,
+                                  fontSize: 15,
+                                  color: AppColors.textDark,
+                                  letterSpacing: 0.3)),
+                          const SizedBox(height: 2),
+                          Text("Upload a photo — AI detects your equipment",
+                              style: GoogleFonts.inter(
+                                  fontWeight: FontWeight.w600,
+                                  fontSize: 11,
+                                  color: AppColors.textSoft)),
+                        ],
+                      ),
+                    ),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: AppColors.primaryTeal.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(6),
+                        border: Border.all(color: AppColors.primaryTeal, width: 1.5),
+                      ),
+                      child: Text("VISION",
+                          style: GoogleFonts.inter(
+                              color: AppColors.primaryTeal,
+                              fontWeight: FontWeight.w900,
+                              fontSize: 9,
+                              letterSpacing: 0.8)),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+
             const SizedBox(height: 32),
             Text("HISTORY (PAST 7 DAYS)",
                 style: GoogleFonts.inter(
@@ -1461,8 +1659,17 @@ class ChatPage extends StatefulWidget {
 class _ChatPageState extends State<ChatPage> {
   final TextEditingController _msgCtrl = TextEditingController();
   final ScrollController _scrollCtrl = ScrollController();
-  final _aiService = AiService();
   bool _isTyping = false;
+
+  @override
+  void initState() {
+    super.initState();
+    // Load persisted chat history from Firestore on first open
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final state = context.read<AppState>();
+      state.loadChatHistory();
+    });
+  }
 
   void _sendMessage() async {
     if (_msgCtrl.text.trim().isEmpty) return;
@@ -1476,7 +1683,11 @@ class _ChatPageState extends State<ChatPage> {
     setState(() => _isTyping = true);
     _scrollToBottom();
 
-    String fittieReply = await _aiService.chatWithFittie(userText);
+    // Pass full chat history so Gemini has context of previous conversations
+    String fittieReply = await state.aiService.chatWithFittie(
+      userText,
+      previousMessages: state.chatMessages,
+    );
 
     if (mounted) {
       setState(() => _isTyping = false);

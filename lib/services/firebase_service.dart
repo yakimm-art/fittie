@@ -359,4 +359,169 @@ class FirebaseService {
     }
     return false;
   }
+
+  // ---------------------------------------------------------------------------
+  // 6. WORKOUT HISTORY SUMMARY (Long Context for Gemini)
+  // ---------------------------------------------------------------------------
+
+  /// Fetches the user's full workout history as a structured text summary
+  /// for Gemini's long context window. Includes exercise names, muscle groups,
+  /// intensities, dates, and progression patterns.
+  Future<String> getWorkoutHistorySummary({int maxWorkouts = 50}) async {
+    final user = _auth.currentUser;
+    if (user == null) return "No workout history available.";
+
+    try {
+      final snapshot = await _firestore
+          .collection('users')
+          .doc(user.uid)
+          .collection('workouts')
+          .orderBy('timestamp', descending: true)
+          .limit(maxWorkouts)
+          .get();
+
+      if (snapshot.docs.isEmpty) return "User has no prior workout history.";
+
+      final buffer = StringBuffer();
+      buffer.writeln("=== WORKOUT HISTORY (${snapshot.docs.length} sessions) ===");
+
+      // Track muscle group frequency and progression
+      Map<String, int> muscleGroupFrequency = {};
+      Map<String, List<int>> exerciseIntensityOverTime = {};
+      int totalCalories = 0;
+      int totalSessions = snapshot.docs.length;
+
+      for (int i = 0; i < snapshot.docs.length; i++) {
+        final data = snapshot.docs[i].data();
+        final date = data['formattedDate'] ?? 'Unknown date';
+        final routine = data['routine'] as List<dynamic>? ?? [];
+        final duration = data['totalDuration'] as int? ?? 0;
+
+        buffer.writeln("\n--- Session ${i + 1} ($date) ---");
+        buffer.writeln("Total Duration: ${(duration / 60).ceil()} minutes");
+
+        for (var ex in routine) {
+          final name = ex['name'] ?? 'Unknown';
+          final calories = ex['calories'] ?? 0;
+          final intensity = ex['intensity'] ?? 5;
+          final muscleGroup = ex['muscle_group'] ?? 'General';
+          final exDuration = ex['duration'] ?? 45;
+
+          buffer.writeln("  - $name | ${exDuration}s | $calories kcal | Intensity: $intensity/10 | Muscle: $muscleGroup");
+
+          totalCalories += (calories as num).toInt();
+          muscleGroupFrequency[muscleGroup] = (muscleGroupFrequency[muscleGroup] ?? 0) + 1;
+
+          if (!exerciseIntensityOverTime.containsKey(name)) {
+            exerciseIntensityOverTime[name] = [];
+          }
+          exerciseIntensityOverTime[name]!.add((intensity as num).toInt());
+        }
+      }
+
+      // Add analytics summary
+      buffer.writeln("\n=== PROGRESSION ANALYTICS ===");
+      buffer.writeln("Total Sessions: $totalSessions");
+      buffer.writeln("Total Calories Burned: $totalCalories kcal");
+
+      buffer.writeln("\nMuscle Group Distribution:");
+      final sortedGroups = muscleGroupFrequency.entries.toList()
+        ..sort((a, b) => b.value.compareTo(a.value));
+      for (var entry in sortedGroups) {
+        buffer.writeln("  - ${entry.key}: ${entry.value} exercises");
+      }
+
+      buffer.writeln("\nExercise Intensity Trends:");
+      for (var entry in exerciseIntensityOverTime.entries) {
+        if (entry.value.length >= 2) {
+          final first = entry.value.last; // oldest
+          final last = entry.value.first; // newest
+          final trend = last > first ? "IMPROVING" : (last < first ? "DECREASING" : "STABLE");
+          buffer.writeln("  - ${entry.key}: $first -> $last ($trend)");
+        }
+      }
+
+      return buffer.toString();
+    } catch (e) {
+      print("Error fetching workout history summary: $e");
+      return "Error loading workout history.";
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  // 7. CHAT HISTORY PERSISTENCE (Firestore-backed memory)
+  // ---------------------------------------------------------------------------
+
+  /// Saves the current chat messages to Firestore
+  Future<void> saveChatHistory(List<Map<String, dynamic>> messages) async {
+    final user = _auth.currentUser;
+    if (user == null) return;
+
+    try {
+      await _firestore.collection('users').doc(user.uid).update({
+        'chatHistory': messages.map((m) => {
+          'role': m['role'],
+          'text': m['text'],
+          'timestamp': m['timestamp'] ?? DateTime.now().toIso8601String(),
+        }).toList(),
+        'chatUpdatedAt': FieldValue.serverTimestamp(),
+      });
+    } catch (e) {
+      print("Error saving chat history: $e");
+    }
+  }
+
+  /// Loads chat history from Firestore
+  Future<List<Map<String, dynamic>>> loadChatHistory() async {
+    final user = _auth.currentUser;
+    if (user == null) return [];
+
+    try {
+      final doc = await _firestore.collection('users').doc(user.uid).get();
+      if (!doc.exists) return [];
+
+      final data = doc.data()!;
+      final history = data['chatHistory'] as List<dynamic>? ?? [];
+
+      return history.map((m) => {
+        'role': (m['role'] ?? 'fittie') as String,
+        'text': (m['text'] ?? '') as String,
+        'timestamp': (m['timestamp'] ?? '') as String,
+      }).toList().cast<Map<String, dynamic>>();
+    } catch (e) {
+      print("Error loading chat history: $e");
+      return [];
+    }
+  }
+
+  /// Gets user profile summary for chat context
+  Future<String> getUserProfileSummary() async {
+    final user = _auth.currentUser;
+    if (user == null) return "";
+
+    try {
+      final doc = await _firestore.collection('users').doc(user.uid).get();
+      if (!doc.exists) return "";
+
+      final data = doc.data()!;
+      final agentContext = data['agentContext'] as Map<String, dynamic>? ?? {};
+
+      return '''
+USER PROFILE:
+- Name: ${data['name'] ?? 'Unknown'}
+- Age: ${data['age'] ?? 'Unknown'}
+- Weight: ${data['weight'] ?? 'Unknown'}
+- Height: ${data['height'] ?? 'Unknown'}
+- Daily Calorie Goal: ${data['dailyCalorieGoal'] ?? 'Unknown'}
+- Current Streak: ${data['streak'] ?? 0} days
+- Equipment: ${agentContext['equipment'] ?? 'None'}
+- Injuries: ${agentContext['injuries'] ?? 'None'}
+- Goals: ${agentContext['goals'] ?? 'General Fitness'}
+- Activity Level: ${agentContext['activity_level'] ?? 'Sedentary'}
+- Stress Baseline: ${agentContext['stress_baseline'] ?? 50}
+''';
+    } catch (e) {
+      return "";
+    }
+  }
 }

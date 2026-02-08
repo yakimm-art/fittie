@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import '../services/firebase_service.dart';
+import '../services/ai_service.dart';
 
 enum FittieMode { power, zen, desk }
 
@@ -7,20 +9,25 @@ class AppState extends ChangeNotifier {
   FittieMode _mode = FittieMode.desk;
   int _energyLevel = 50; 
   
-  // ⚙️ Settings State
+  // Settings State
   bool _isDarkMode = false;
   bool _notificationsEnabled = true;
   bool _soundEnabled = true;
 
-  // 💬 Chat History
+  // Chat History (persisted to Firestore)
   final List<Map<String, dynamic>> _chatMessages = [
-    {"role": "fittie", "text": "Hi! I'm Fittie. Ask me anything about your workout or health! 🐻"}
+    {"role": "fittie", "text": "Hi! I'm Fittie. Ask me anything about your workout or health! 🐻", "timestamp": ""}
   ];
+  bool _chatLoaded = false;
+  final FirebaseService _firebaseService = FirebaseService();
+  final AiService _aiService = AiService();
 
   // --- GETTERS ---
   FittieMode get mode => _mode;
   int get energyLevel => _energyLevel;
   List<Map<String, dynamic>> get chatMessages => _chatMessages;
+  bool get chatLoaded => _chatLoaded;
+  AiService get aiService => _aiService;
   
   bool get isDarkMode => _isDarkMode;
   bool get notificationsEnabled => _notificationsEnabled;
@@ -135,15 +142,47 @@ class AppState extends ChangeNotifier {
     notifyListeners();
   }
 
-  // 💬 Chat Actions
+  // Chat Actions with Firebase persistence
+
+  /// Load chat history from Firestore on first access
+  Future<void> loadChatHistory() async {
+    if (_chatLoaded) return;
+    try {
+      final saved = await _firebaseService.loadChatHistory();
+      if (saved.isNotEmpty) {
+        _chatMessages.clear();
+        _chatMessages.addAll(saved);
+      }
+      _chatLoaded = true;
+      notifyListeners();
+    } catch (e) {
+      print("Error loading chat history: $e");
+      _chatLoaded = true;
+    }
+  }
+
   void addChatMessage(String role, String text) {
-    _chatMessages.add({"role": role, "text": text});
+    _chatMessages.add({
+      "role": role,
+      "text": text,
+      "timestamp": DateTime.now().toIso8601String(),
+    });
     notifyListeners();
+
+    // Persist to Firestore (debounced, non-blocking)
+    _firebaseService.saveChatHistory(_chatMessages);
   }
 
   void clearChat() {
     _chatMessages.clear();
-    _chatMessages.add({"role": "fittie", "text": "Hi! I'm Fittie. Ask me anything about your workout or health! 🐻"});
+    _chatMessages.add({
+      "role": "fittie",
+      "text": "Hi! I'm Fittie. Ask me anything about your workout or health! 🐻",
+      "timestamp": DateTime.now().toIso8601String(),
+    });
+    // Reset the AI chat session so it doesn't carry stale context
+    _aiService.resetChatSession();
     notifyListeners();
+    _firebaseService.saveChatHistory(_chatMessages);
   }
 }

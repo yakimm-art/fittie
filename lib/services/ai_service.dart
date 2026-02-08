@@ -1,8 +1,10 @@
 import 'dart:convert';
+import 'dart:typed_data';
 import 'package:flutter/services.dart' show rootBundle;
 import 'package:google_generative_ai/google_generative_ai.dart';
 import 'package:http/http.dart' as http;
 import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'firebase_service.dart';
 
 class AiService {
   static String get _geminiKey => dotenv.env['GEMINI_API_KEY'] ?? '';
@@ -10,6 +12,12 @@ class AiService {
 
   late final GenerativeModel _model;
   late final GenerativeModel _chatModel;
+  late final GenerativeModel _visionModel;
+  final FirebaseService _firebaseService = FirebaseService();
+
+  // Persistent chat session with memory
+  ChatSession? _chatSession;
+  bool _chatInitialized = false;
 
   // Curated fallback library using reliable Giphy fitness GIFs
   // These are direct links to fitness-specific GIFs from verified fitness accounts
@@ -75,6 +83,13 @@ class AiService {
     );
 
     _chatModel = GenerativeModel(model: 'gemini-3-flash', apiKey: _geminiKey);
+
+    // Vision model for gym equipment recognition
+    _visionModel = GenerativeModel(
+      model: 'gemini-3-flash',
+      apiKey: _geminiKey,
+      generationConfig: GenerationConfig(responseMimeType: 'application/json'),
+    );
   }
 
   // Cache for the loaded exercise database
@@ -117,6 +132,14 @@ class AiService {
     final String height = userContext['height'] ?? "170cm";
     final String age = (userContext['age'] ?? 25).toString();
 
+    // LONG CONTEXT: Fetch entire workout history for progression analysis
+    String workoutHistory = "No prior history available.";
+    try {
+      workoutHistory = await _firebaseService.getWorkoutHistorySummary(maxWorkouts: 50);
+    } catch (e) {
+      print("Could not load workout history for context: $e");
+    }
+
     final prompt =
         '''
       $_personaPrompt
@@ -128,6 +151,16 @@ class AiService {
       - Injuries: $injuries
       - Equipment: $equipment
       - SPECIAL NOTES: "$notes"
+      
+      📊 LONG-TERM WORKOUT HISTORY (Use this for intelligent progression):
+      $workoutHistory
+      
+      🧠 PROGRESSION RULES (Based on workout history above):
+      - If user has been doing the same exercises repeatedly, introduce new variations to prevent plateaus.
+      - If intensity trends show improvement, slightly increase difficulty.
+      - If a muscle group is overworked (high frequency), suggest exercises for underworked groups.
+      - If user missed several days, ease them back in with lower intensity.
+      - Factor in the total sessions completed for progressive overload.
       
       TASK: Create a $workoutCount-step workout routine with exactly $workoutCount exercises.
       
@@ -154,7 +187,7 @@ class AiService {
           "intensity": 7,
           "muscle_group": "Legs",
           "emoji": "💪", 
-          "instruction": "Specific bear-themed advice based on their stats."
+          "instruction": "Specific bear-themed advice based on their stats and history."
         }
       ]
     ''';
@@ -511,14 +544,178 @@ class AiService {
     return result;
   }
 
-  Future<String> chatWithFittie(String userMessage) async {
-    final prompt = '''$_personaPrompt \nUSER: "$userMessage"\nREPLY (Short):''';
+  /// Initialize chat session with full user context and conversation history.
+  /// Uses Gemini's long context window to maintain memory across sessions.
+  Future<void> _initializeChatSession(List<Map<String, dynamic>> previousMessages) async {
+    if (_chatInitialized) return;
+
+    // Fetch user profile and workout history for deep context
+    String userProfile = "";
+    String workoutHistory = "";
     try {
-      final content = [Content.text(prompt)];
-      final response = await _chatModel.generateContent(content);
+      userProfile = await _firebaseService.getUserProfileSummary();
+      workoutHistory = await _firebaseService.getWorkoutHistorySummary(maxWorkouts: 30);
+    } catch (e) {
+      print("Error loading context for chat: $e");
+    }
+
+    final systemPrompt = '''
+$_personaPrompt
+
+$userProfile
+
+📊 USER'S COMPLETE WORKOUT HISTORY:
+$workoutHistory
+
+IMPORTANT MEMORY RULES:
+- You have access to the user's ENTIRE workout history above. Reference it when giving advice.
+- If the user mentions past workouts, you can see exactly what they did and when.
+- Track their progression and congratulate improvements.
+- Notice patterns (overtraining specific muscles, skipping days, intensity changes).
+- Suggest long-term programming adjustments based on their history.
+- Remember what was discussed earlier in this conversation.
+- Be specific: "Last Tuesday you did 8 intensity squats, let's try 9 today!" 
+''';
+
+    // Build conversation history from previous messages
+    List<Content> history = [];
+    
+    // Add system context as first message
+    history.add(Content.text(systemPrompt));
+    history.add(Content.model([TextPart("I understand! I'm Fittie, your fitness bear coach. I have your complete workout history loaded and I'm ready to give you personalized advice based on your progress! 🐻")]));
+
+    // Replay previous conversation messages (up to last 40 for context window)
+    final recentMessages = previousMessages.length > 40 
+        ? previousMessages.sublist(previousMessages.length - 40) 
+        : previousMessages;
+    
+    for (var msg in recentMessages) {
+      if (msg['role'] == 'user') {
+        history.add(Content.text(msg['text'] ?? ''));
+      } else {
+        history.add(Content.model([TextPart(msg['text'] ?? '')]));
+      }
+    }
+
+    _chatSession = _chatModel.startChat(history: history);
+    _chatInitialized = true;
+  }
+
+  /// Reset the chat session (called when user clears chat)
+  void resetChatSession() {
+    _chatSession = null;
+    _chatInitialized = false;
+  }
+
+  Future<String> chatWithFittie(String userMessage, {List<Map<String, dynamic>> previousMessages = const []}) async {
+    try {
+      // Initialize session with full context if not already done
+      await _initializeChatSession(previousMessages);
+
+      // Send message through the persistent chat session
+      final response = await _chatSession!.sendMessage(Content.text(userMessage));
       return response.text ?? "Let's workout! 🐻";
     } catch (e) {
-      return "I'm having trouble connecting! Keep moving! 🐻";
+      print("Chat error: $e");
+      // Fallback to stateless call if session fails
+      try {
+        final prompt = '''$_personaPrompt \nUSER: "$userMessage"\nREPLY (Short):''';
+        final content = [Content.text(prompt)];
+        final response = await _chatModel.generateContent(content);
+        return response.text ?? "Let's workout! 🐻";
+      } catch (e2) {
+        return "I'm having trouble connecting! Keep moving! 🐻";
+      }
     }
+  }
+
+  // ===========================================================================
+  // MULTIMODAL VISION: Gym Equipment Recognition
+  // ===========================================================================
+
+  /// Analyzes a photo of the user's gym/home setup and identifies equipment.
+  /// Uses Gemini 3's vision capabilities.
+  Future<Map<String, dynamic>> analyzeGymPhoto(Uint8List imageBytes) async {
+    final prompt = '''
+You are Fittie, a fitness AI bear with expert knowledge of gym equipment.
+
+Analyze this photo of the user's workout space / home gym and identify ALL exercise equipment visible.
+
+For each piece of equipment found, provide:
+1. The equipment name (standard fitness terminology)
+2. Approximate count/quantity if applicable
+3. Any notable details (weight range, brand, condition)
+
+Also assess the workout space:
+- Available floor space (small/medium/large)
+- Indoor or outdoor
+- Any safety concerns
+
+RETURN JSON ONLY:
+{
+  "equipment_list": ["Dumbbells", "Resistance Bands", "Yoga Mat", ...],
+  "equipment_details": [
+    {"name": "Dumbbells", "quantity": "2 pairs", "details": "Adjustable, 5-25 lbs"},
+    ...
+  ],
+  "space_assessment": {
+    "floor_space": "medium",
+    "environment": "indoor",
+    "safety_notes": "Clear space, good lighting"
+  },
+  "summary": "A friendly 1-sentence summary of their setup as Fittie the bear."
+}
+''';
+
+    try {
+      final content = [
+        Content.multi([
+          TextPart(prompt),
+          DataPart('image/jpeg', imageBytes),
+        ]),
+      ];
+
+      final response = await _visionModel.generateContent(content);
+      String cleanText = response.text ?? "{}";
+      cleanText = cleanText.replaceAll('```json', '').replaceAll('```', '').trim();
+      return jsonDecode(cleanText);
+    } catch (e) {
+      print("Vision analysis error: $e");
+      return {
+        "equipment_list": ["Body only"],
+        "equipment_details": [],
+        "space_assessment": {"floor_space": "unknown", "environment": "unknown"},
+        "summary": "I couldn't quite see the equipment, but no worries - bodyweight exercises are amazing! 🐻"
+      };
+    }
+  }
+
+  /// Generates a workout based on equipment identified from a photo.
+  /// Combines vision results with user context for maximum personalization.
+  Future<List<dynamic>> generateWorkoutFromPhoto(
+    Uint8List imageBytes,
+    String mode,
+    int energy,
+    Map<String, dynamic> userContext, {
+    int workoutCount = 5,
+  }) async {
+    // Step 1: Analyze the photo
+    final equipmentAnalysis = await analyzeGymPhoto(imageBytes);
+    final detectedEquipment = (equipmentAnalysis['equipment_list'] as List<dynamic>?)?.join(', ') ?? 'Body only';
+    final spaceAssessment = equipmentAnalysis['space_assessment'] ?? {};
+
+    // Step 2: Override equipment in user context with detected equipment
+    final enrichedContext = Map<String, dynamic>.from(userContext);
+    enrichedContext['equipment'] = detectedEquipment;
+    enrichedContext['extraNotes'] = 
+      "DETECTED FROM PHOTO: $detectedEquipment. "
+      "Space: ${spaceAssessment['floor_space'] ?? 'unknown'}. "
+      "Environment: ${spaceAssessment['environment'] ?? 'unknown'}. "
+      "${spaceAssessment['safety_notes'] ?? ''}. "
+      "${userContext['extraNotes'] ?? ''}";
+
+    // Step 3: Generate workout with the enriched context
+    await _loadExerciseDb();
+    return await generateWorkout(mode, energy, enrichedContext, workoutCount: workoutCount);
   }
 }
