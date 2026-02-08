@@ -1126,7 +1126,7 @@ class CTASection extends StatelessWidget {
                           fontWeight: FontWeight.w900,
                           letterSpacing: -1)),
                   const SizedBox(height: 16),
-                  Text("Join 50,000+ athletes flowing with Fittie.",
+                  Text("Start your AI-powered fitness journey with Fittie.",
                       textAlign: TextAlign.center,
                       style: GoogleFonts.inter(
                           color: Colors.white.withOpacity(0.9),

@@ -360,7 +360,7 @@ class _Timeline extends StatelessWidget {
       _M(
           "Mar 2025",
           "Idea born",
-          "Alex sketches the first concept after frustration with existing fitness apps.",
+          "Yakim sketches the first concept after frustration with existing fitness apps.",
           AppColors.primaryTeal),
       _M(
           "Jun 2025",
@@ -509,29 +509,11 @@ class _Team extends StatelessWidget {
   Widget build(BuildContext context) {
     final team = [
       _T(
-          "Alex Chen",
-          "Founder & CEO",
-          "Ex-Google AI, powerlifter. Believes software should adapt to humans, not the other way around.",
+          "Yakim",
+          "Creator & Developer",
+          "Built Fittie from scratch — design, engineering, and AI integration. Passionate about making fitness accessible through technology.",
           AppColors.primaryTeal,
-          "💡"),
-      _T(
-          "Maya Rodriguez",
-          "Head of Design",
-          "Neo-brutalism evangelist, CrossFit addict. Obsessed with making complex things feel simple.",
-          AppColors.accentPurple,
-          "🎨"),
-      _T(
-          "James Park",
-          "Lead Engineer",
-          "Flutter GDE, ex-Fitbit. Writes code that runs everywhere and never skips leg day.",
-          AppColors.accentOrange,
-          "⚡"),
-      _T(
-          "Priya Sharma",
-          "AI/ML Lead",
-          "Former DeepMind, marathon runner. Teaching machines to understand the human body.",
-          AppColors.accentYellow,
-          "🧠"),
+          "🚀"),
     ];
 
     return Padding(
@@ -544,13 +526,13 @@ class _Team extends StatelessWidget {
             children: [
               FadeSlideIn(
                 child: const BrutalistTag(
-                    label: "THE TEAM", color: AppColors.accentPurple),
+                    label: "THE CREATOR", color: AppColors.accentPurple),
               ),
               const SizedBox(height: 10),
               FadeSlideIn(
                 delayMs: 50,
                 child: Text(
-                  "Small team, big lifts.",
+                  "Solo-built, community-driven.",
                   style: GoogleFonts.inter(
                       fontSize: 22,
                       fontWeight: FontWeight.w900,
