@@ -359,7 +359,7 @@ class _HomePageState extends State<HomePage> {
 
           Color _barColor() {
             if (_localEnergyLevel >= 70) return AppColors.primaryTeal;
-            if (_localEnergyLevel >= 40) return AppColors.accentYellow;
+            if (_localEnergyLevel >= 40) return AppColors.streakGold;
             return const Color(0xFFE53E3E);
           }
 
