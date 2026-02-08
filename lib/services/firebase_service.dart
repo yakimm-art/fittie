@@ -161,51 +161,71 @@ class FirebaseService {
            now.day == lastDate.day;
   }
 
-  Future<int> logDailyCheckIn(double energyLevel, String mode) async {
+  /// Log mood / energy check-in. Does NOT update streak — streak is only
+  /// incremented when the user completes a valid workout.
+  Future<void> logDailyCheckIn(double energyLevel, String mode) async {
+    final user = _auth.currentUser;
+    if (user == null) return;
+
+    final userRef = _firestore.collection('users').doc(user.uid);
+    final today = DateTime.now();
+    final String dateId = "${today.year}-${today.month}-${today.day}";
+
+    try {
+      final logRef = userRef.collection('daily_logs').doc(dateId);
+      await logRef.set({
+        'energy': energyLevel,
+        'mode': mode,
+        'timestamp': FieldValue.serverTimestamp(),
+        'type': 'check-in',
+      }, SetOptions(merge: true));
+
+      await userRef.update({
+        'lastCheckIn': FieldValue.serverTimestamp(),
+        'hasLoggedToday': true,
+      });
+    } catch (e) {
+      print("Check-in Error: $e");
+    }
+  }
+
+  /// Increment the streak when the user completes a valid workout.
+  Future<int> updateStreakOnWorkout() async {
     final user = _auth.currentUser;
     if (user == null) return 0;
 
     final userRef = _firestore.collection('users').doc(user.uid);
     final today = DateTime.now();
-    final String dateId = "${today.year}-${today.month}-${today.day}"; 
 
     try {
       return await _firestore.runTransaction((transaction) async {
         final userDoc = await transaction.get(userRef);
         final data = userDoc.exists ? userDoc.data() as Map<String, dynamic> : {};
-        
+
         int currentStreak = data['streak'] ?? 0;
-        Timestamp? lastCheckInTs = data['lastCheckIn'];
+        Timestamp? lastWorkoutTs = data['lastWorkoutDate'];
 
         int newStreak = currentStreak;
-        if (lastCheckInTs != null) {
-          final lastDate = lastCheckInTs.toDate();
+        if (lastWorkoutTs != null) {
+          final lastDate = lastWorkoutTs.toDate();
           final lastDateOnly = DateTime(lastDate.year, lastDate.month, lastDate.day);
           final todayOnly = DateTime(today.year, today.month, today.day);
           final difference = todayOnly.difference(lastDateOnly).inDays;
 
-          if (difference == 1) {
-            newStreak++; 
-          } else if (difference > 1) {
-            newStreak = 1; 
+          if (difference == 0) {
+            // Already worked out today — streak unchanged
+          } else if (difference == 1) {
+            newStreak++;
+          } else {
+            newStreak = 1; // gap → reset
           }
-          // If difference == 0, streak stays the same
         } else {
-          newStreak = 1; 
+          newStreak = 1; // first ever workout
         }
-
-        final logRef = userRef.collection('daily_logs').doc(dateId);
-        transaction.set(logRef, {
-          'energy': energyLevel,
-          'mode': mode,
-          'timestamp': FieldValue.serverTimestamp(),
-          'type': 'check-in',
-        }, SetOptions(merge: true));
 
         transaction.update(userRef, {
           'streak': newStreak,
-          'lastCheckIn': FieldValue.serverTimestamp(),
-          'hasLoggedToday': true, 
+          'lastWorkoutDate': FieldValue.serverTimestamp(),
         });
 
         return newStreak;
@@ -250,9 +270,9 @@ class FirebaseService {
     return snapshot.docs.length;
   }
 
-  Future<void> saveCompletedWorkout(List<dynamic> routine, int durationSecs) async {
+  Future<int> saveCompletedWorkout(List<dynamic> routine, int durationSecs) async {
     final user = _auth.currentUser;
-    if (user == null) return;
+    if (user == null) return 0;
 
     final now = DateTime.now();
     final formattedDate = DateFormat('MMM d, yyyy').format(now);
@@ -264,6 +284,9 @@ class FirebaseService {
       'completed': true,
       'formattedDate': formattedDate,
     });
+
+    // Update streak only on valid completed workout
+    return await updateStreakOnWorkout();
   }
 
   Future<List<double>> getWeeklyCalories() async {

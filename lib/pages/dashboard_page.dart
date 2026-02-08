@@ -120,52 +120,86 @@ class _DashboardPageState extends State<DashboardPage> {
 
   Widget _buildImprovedWebSidebar(AppState state) {
     final sidebarWidth = _sidebarExpanded ? 220.0 : 80.0;
-    
-    return MouseRegion(
-      onEnter: (_) => setState(() => _sidebarExpanded = true),
-      onExit: (_) => setState(() => _sidebarExpanded = false),
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        curve: Curves.easeOut,
-        width: sidebarWidth,
-        margin: const EdgeInsets.all(16),
-        clipBehavior: Clip.antiAlias,
-        decoration: BoxDecoration(
-          color: AppColors.cardSurface,
-          borderRadius: BorderRadius.circular(24),
-          border: Border.all(color: AppColors.blackAccent, width: 2.5),
-          boxShadow: [
-            BoxShadow(color: AppColors.blackAccent, offset: const Offset(4, 4)),
-          ],
-        ),
-        child: Column(
-          children: [
-            const SizedBox(height: 24),
-            // Logo
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: state.primaryColor.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: AppColors.blackAccent, width: 2),
+
+    return Stack(
+      clipBehavior: Clip.none,
+      children: [
+        AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          curve: Curves.easeOut,
+          width: sidebarWidth,
+          margin: const EdgeInsets.all(16),
+          clipBehavior: Clip.antiAlias,
+          decoration: BoxDecoration(
+            color: AppColors.cardSurface,
+            borderRadius: BorderRadius.circular(24),
+            border: Border.all(color: AppColors.blackAccent, width: 2.5),
+            boxShadow: [
+              BoxShadow(color: AppColors.blackAccent, offset: const Offset(4, 4)),
+            ],
+          ),
+          child: Column(
+            children: [
+              const SizedBox(height: 24),
+              // Logo
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: state.primaryColor.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: AppColors.blackAccent, width: 2),
+                ),
+                child: const FittieLogo(size: 32),
               ),
-              child: const FittieLogo(size: 32),
-            ),
-            const SizedBox(height: 32),
-            // Nav items
-            _buildSidebarItem(0, 'Dashboard', Icons.dashboard_rounded, state),
-            _buildSidebarItem(1, 'Workouts', Icons.bolt_rounded, state),
-            _buildSidebarItem(2, 'Chat', Icons.chat_bubble_rounded, state),
-            _buildSidebarItem(3, 'Profile', Icons.person_rounded, state),
-            const Spacer(),
-            // Settings
-            Padding(
-              padding: const EdgeInsets.only(bottom: 24),
-              child: _buildSidebarItem(-1, 'Settings', Icons.settings_outlined, state, isSettings: true),
-            ),
-          ],
+              const SizedBox(height: 32),
+              // Nav items
+              _buildSidebarItem(0, 'Dashboard', Icons.dashboard_rounded, state),
+              _buildSidebarItem(1, 'Workouts', Icons.bolt_rounded, state),
+              _buildSidebarItem(2, 'Chat', Icons.chat_bubble_rounded, state),
+              _buildSidebarItem(3, 'Profile', Icons.person_rounded, state),
+              const Spacer(),
+              // Settings
+              Padding(
+                padding: const EdgeInsets.only(bottom: 24),
+                child: _buildSidebarItem(-1, 'Settings', Icons.settings_outlined, state, isSettings: true),
+              ),
+            ],
+          ),
         ),
-      ),
+
+        // Toggle arrow button on the right edge
+        Positioned(
+          right: 0,
+          top: 0,
+          bottom: 0,
+          child: Center(
+            child: GestureDetector(
+              onTap: _toggleSidebar,
+              child: MouseRegion(
+                cursor: SystemMouseCursors.click,
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 200),
+                  width: 28,
+                  height: 48,
+                  decoration: BoxDecoration(
+                    color: AppColors.cardSurface,
+                    borderRadius: const BorderRadius.horizontal(right: Radius.circular(12)),
+                    border: Border.all(color: AppColors.blackAccent, width: 2),
+                    boxShadow: const [
+                      BoxShadow(color: AppColors.blackAccent, offset: Offset(2, 2)),
+                    ],
+                  ),
+                  child: AnimatedRotation(
+                    duration: const Duration(milliseconds: 200),
+                    turns: _sidebarExpanded ? 0.5 : 0.0,
+                    child: const Icon(Icons.chevron_right_rounded, size: 20, color: AppColors.textSoft),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ],
     );
   }
 
@@ -272,6 +306,9 @@ class HomePage extends StatefulWidget {
 class _HomePageState extends State<HomePage> {
   final _firebaseService = FirebaseService();
   final _aiService = AiService();
+
+  // Prevent the mood popup from firing twice (widget can rebuild)
+  static bool _moodPopupShownThisSession = false;
   
   int _currentStreak = 0;
   String _userName = "Friend";
@@ -289,6 +326,7 @@ class _HomePageState extends State<HomePage> {
     super.initState();
     _fetchDashboardData();
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
       final state = Provider.of<AppState>(context, listen: false);
       setState(() => _localEnergyLevel = state.energyLevel.toDouble());
       _checkMoodLogging();
@@ -296,8 +334,10 @@ class _HomePageState extends State<HomePage> {
   }
 
   Future<void> _checkMoodLogging() async {
+    if (_moodPopupShownThisSession) return; // already shown this session
     bool hasLogged = await _firebaseService.hasLoggedToday();
     if (!hasLogged && mounted) {
+      _moodPopupShownThisSession = true;
       _showMoodPopup();
     }
   }
@@ -306,55 +346,161 @@ class _HomePageState extends State<HomePage> {
     showDialog(
       context: context,
       barrierDismissible: false,
-      builder: (context) => StatefulBuilder(
-        builder: (context, setDialogState) {
-          return AlertDialog(
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDialogState) {
+          // Emoji face based on energy level
+          String _face() {
+            if (_localEnergyLevel >= 80) return "😁";
+            if (_localEnergyLevel >= 60) return "😊";
+            if (_localEnergyLevel >= 40) return "😐";
+            if (_localEnergyLevel >= 20) return "😔";
+            return "😴";
+          }
+
+          Color _barColor() {
+            if (_localEnergyLevel >= 70) return AppColors.primaryTeal;
+            if (_localEnergyLevel >= 40) return AppColors.accentYellow;
+            return const Color(0xFFE53E3E);
+          }
+
+          return Dialog(
             shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(14), 
-              side: const BorderSide(color: AppColors.blackAccent, width: 2.5),
+              borderRadius: BorderRadius.circular(24),
+              side: const BorderSide(color: AppColors.blackAccent, width: 3),
             ),
             backgroundColor: AppColors.bgCream,
-            title: Text("Log Your Mood", style: GoogleFonts.inter(fontWeight: FontWeight.w900)),
-            content: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text("How are you feeling today?", style: GoogleFonts.inter()),
-                const SizedBox(height: 20),
-                Column(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 380),
+              child: Padding(
+                padding: const EdgeInsets.all(28),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
                   children: [
-                    Text("${_localEnergyLevel.toInt()}% Energy", 
-                      style: GoogleFonts.inter(fontWeight: FontWeight.bold, color: AppColors.primaryTeal)),
-                    Slider(
-                      value: _localEnergyLevel,
-                      min: 0,
-                      max: 100,
-                      activeColor: AppColors.primaryTeal,
-                      onChanged: (val) {
-                        setDialogState(() => _localEnergyLevel = val);
-                      },
+                    // Title bar
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: AppColors.primaryTeal,
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: AppColors.blackAccent, width: 2),
+                        boxShadow: const [
+                          BoxShadow(color: AppColors.blackAccent, offset: Offset(2, 2)),
+                        ],
+                      ),
+                      child: Text("DAILY CHECK-IN",
+                          style: GoogleFonts.inter(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w900,
+                              color: Colors.white,
+                              letterSpacing: 2)),
+                    ),
+                    const SizedBox(height: 20),
+                    Text("How are you feeling?",
+                        style: GoogleFonts.inter(
+                            fontSize: 22, fontWeight: FontWeight.w900, color: AppColors.textDark)),
+                    const SizedBox(height: 6),
+                    Text("This helps Fittie tailor your workout intensity.",
+                        textAlign: TextAlign.center,
+                        style: GoogleFonts.inter(fontSize: 13, color: AppColors.textSoft)),
+                    const SizedBox(height: 28),
+
+                    // Big emoji face
+                    Text(_face(), style: const TextStyle(fontSize: 56)),
+                    const SizedBox(height: 16),
+
+                    // Energy value
+                    Text("${_localEnergyLevel.toInt()}%",
+                        style: GoogleFonts.inter(
+                            fontSize: 36, fontWeight: FontWeight.w900, color: _barColor())),
+                    Text("ENERGY",
+                        style: GoogleFonts.inter(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w800,
+                            color: AppColors.textSoft,
+                            letterSpacing: 1.5)),
+                    const SizedBox(height: 20),
+
+                    // Slider track
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(14),
+                        border: Border.all(color: AppColors.blackAccent, width: 2),
+                        boxShadow: const [
+                          BoxShadow(color: AppColors.blackAccent, offset: Offset(3, 3)),
+                        ],
+                      ),
+                      child: SliderTheme(
+                        data: SliderThemeData(
+                          trackHeight: 10,
+                          thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 14),
+                          overlayShape: const RoundSliderOverlayShape(overlayRadius: 22),
+                          activeTrackColor: _barColor(),
+                          inactiveTrackColor: AppColors.blackAccent.withOpacity(0.08),
+                          thumbColor: _barColor(),
+                          overlayColor: _barColor().withOpacity(0.15),
+                        ),
+                        child: Slider(
+                          value: _localEnergyLevel,
+                          min: 0,
+                          max: 100,
+                          divisions: 20,
+                          onChanged: (val) {
+                            setDialogState(() => _localEnergyLevel = val);
+                          },
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text("Low", style: GoogleFonts.inter(fontSize: 11, color: AppColors.textSoft)),
+                        Text("High", style: GoogleFonts.inter(fontSize: 11, color: AppColors.textSoft)),
+                      ],
+                    ),
+                    const SizedBox(height: 24),
+
+                    // Log button
+                    SizedBox(
+                      width: double.infinity,
+                      child: GestureDetector(
+                        onTap: () async {
+                          final state = ctx.read<AppState>();
+                          state.setEnergyLevel(_localEnergyLevel.toInt());
+                          await _firebaseService.logDailyCheckIn(_localEnergyLevel, state.mode.name);
+                          if (mounted) {
+                            Navigator.pop(ctx);
+                          }
+                        },
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(vertical: 16),
+                          decoration: BoxDecoration(
+                            color: AppColors.primaryTeal,
+                            borderRadius: BorderRadius.circular(14),
+                            border: Border.all(color: AppColors.blackAccent, width: 2.5),
+                            boxShadow: const [
+                              BoxShadow(color: AppColors.blackAccent, offset: Offset(4, 4)),
+                            ],
+                          ),
+                          child: Center(
+                            child: Text("LET'S GO 🐻",
+                                style: GoogleFonts.inter(
+                                    fontSize: 15,
+                                    fontWeight: FontWeight.w900,
+                                    color: Colors.white,
+                                    letterSpacing: 1)),
+                          ),
+                        ),
+                      ),
                     ),
                   ],
                 ),
-              ],
-            ),
-            actions: [
-              TextButton(
-                onPressed: () async {
-                  final state = context.read<AppState>();
-                  state.setEnergyLevel(_localEnergyLevel.toInt());
-                  int newStreak = await _firebaseService.logDailyCheckIn(_localEnergyLevel, state.mode.name);
-                  if (mounted) {
-                    setState(() {
-                      _currentStreak = newStreak;
-                    });
-                    Navigator.pop(context);
-                  }
-                },
-                child: Text("LOG ENERGY", style: GoogleFonts.inter(fontWeight: FontWeight.bold, color: AppColors.primaryTeal)),
               ),
-            ],
+            ),
           );
-        }
+        },
       ),
     );
   }
