@@ -1,13 +1,29 @@
 import 'dart:convert';
 import 'dart:typed_data';
 import 'package:flutter/foundation.dart' show kIsWeb;
-import 'package:cloud_functions/cloud_functions.dart';
+import 'package:http/http.dart' as http;
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter_tts/flutter_tts.dart';
 import '../providers/app_state.dart';
 
 class VoiceService {
-  final FirebaseFunctions _functions = FirebaseFunctions.instance;
+  /// Call a Cloud Function via HTTP (bypasses cloud_functions_web Int64 bug)
+  Future<Map<String, dynamic>> _callFunction(String name, Map<String, dynamic> data) async {
+    final token = await FirebaseAuth.instance.currentUser?.getIdToken();
+    final response = await http.post(
+      Uri.parse('${Uri.base.origin}/api/$name'),
+      headers: {
+        'Content-Type': 'application/json',
+        if (token != null) 'Authorization': 'Bearer $token',
+      },
+      body: jsonEncode(data),
+    );
+    if (response.statusCode != 200) {
+      throw Exception('Function $name failed: ${response.statusCode} ${response.body}');
+    }
+    return jsonDecode(response.body) as Map<String, dynamic>;
+  }
 
   final AudioPlayer _player = AudioPlayer();
   final FlutterTts _tts = FlutterTts();
@@ -24,7 +40,7 @@ class VoiceService {
     if (_ttsInitialized) return;
     try {
       if (kIsWeb) {
-        await _tts.setEngine("google");
+        // setEngine is not supported on web — skip it
       }
       await _tts.setLanguage("en-US");
       await _tts.setSpeechRate(0.45);
@@ -78,14 +94,14 @@ class VoiceService {
       }
 
       // 3. CALL CLOUD FUNCTION (API key stays server-side)
-      final result = await _functions.httpsCallable('elevenLabsTts').call({
+      final result = await _callFunction('elevenLabsTts', {
         'text': text,
         'stability': stability,
         'similarityBoost': similarity,
         'style': 0.5,
       });
 
-      final String? audioBase64 = result.data['audioBase64'];
+      final String? audioBase64 = result['audioBase64'];
       if (audioBase64 != null && audioBase64.isNotEmpty) {
         final Uint8List audioBytes = base64Decode(audioBase64);
         print("✅ ElevenLabs audio via Cloud Function: ${audioBytes.length} bytes");

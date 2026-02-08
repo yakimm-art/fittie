@@ -1,11 +1,27 @@
 import 'dart:convert';
 import 'dart:typed_data';
 import 'package:flutter/services.dart' show rootBundle;
-import 'package:cloud_functions/cloud_functions.dart';
+import 'package:http/http.dart' as http;
+import 'package:firebase_auth/firebase_auth.dart';
 import 'firebase_service.dart';
 
 class AiService {
-  final FirebaseFunctions _functions = FirebaseFunctions.instance;
+  /// Call a Cloud Function via HTTP (bypasses cloud_functions_web Int64 bug)
+  Future<Map<String, dynamic>> _callFunction(String name, Map<String, dynamic> data) async {
+    final token = await FirebaseAuth.instance.currentUser?.getIdToken();
+    final response = await http.post(
+      Uri.parse('${Uri.base.origin}/api/$name'),
+      headers: {
+        'Content-Type': 'application/json',
+        if (token != null) 'Authorization': 'Bearer $token',
+      },
+      body: jsonEncode(data),
+    );
+    if (response.statusCode != 200) {
+      throw Exception('Function $name failed: ${response.statusCode} ${response.body}');
+    }
+    return jsonDecode(response.body) as Map<String, dynamic>;
+  }
   final FirebaseService _firebaseService = FirebaseService();
 
   // Chat history for stateless server-side chat sessions
@@ -271,8 +287,34 @@ class AiService {
       print("Could not load workout history for context: $e");
     }
 
+    // Build a hard accessibility gate that appears FIRST in the prompt
+    String accessibilityGate = '';
+    if (mobilityStatus == 'Wheelchair User' || mobilityStatus == 'Seated Only') {
+      accessibilityGate = '''
+🚨🚨🚨 ABSOLUTE HARD CONSTRAINT — READ THIS FIRST 🚨🚨🚨
+This user is a WHEELCHAIR USER / SEATED ONLY.
+You MUST ONLY generate exercises that can be done while seated in a chair or wheelchair.
+ABSOLUTELY FORBIDDEN exercises: Push-ups, Pushups, Squats, Lunges, Jumping Jacks, Burpees, Mountain Climbers, High Knees, Plank, Deadlift, Standing Calf Raises, any exercise requiring standing or lying on the floor.
+ALLOWED exercises: Seated Dumbbell Curl, Seated Shoulder Press, Seated Tricep Extension, Chair Dips, Seated Russian Twist, Seated Arm Circles, Seated Shadow Boxing, Resistance Band Pull-Apart, Seated Chest Press, Seated Lateral Raise, Wrist Curls, Seated Knee Raises, Wheelchair Push (cardio).
+If you include ANY standing or floor exercise, the output is INVALID.
+🚨🚨🚨 END HARD CONSTRAINT 🚨🚨🚨
+''';
+    } else if (mobilityStatus == 'Limited Lower Body') {
+      accessibilityGate = '''
+🚨 HARD CONSTRAINT: User has LIMITED LOWER BODY mobility.
+Minimize leg exercises. Focus on upper body, core, seated movements.
+No squats, lunges, jumping, or running.
+''';
+    } else if (mobilityStatus == 'Crutches/Walker') {
+      accessibilityGate = '''
+🚨 HARD CONSTRAINT: User uses CRUTCHES/WALKER.
+Only seated or stationary exercises. No balance-dependent movements.
+''';
+    }
+
     final prompt =
         '''
+      $accessibilityGate
       $_personaPrompt
       
       📋 USER PROFILE:
@@ -342,18 +384,23 @@ class AiService {
     ''';
 
     try {
-      final result = await _functions.httpsCallable('geminiGenerate').call({
+      final result = await _callFunction('geminiGenerate', {
         'prompt': prompt,
         'responseMimeType': 'application/json',
       });
 
-      String cleanText = result.data['text'] ?? "[]";
+      String cleanText = result['text'] ?? "[]";
       cleanText = cleanText
           .replaceAll('```json', '')
           .replaceAll('```', '')
           .trim();
 
       List<dynamic> exercises = jsonDecode(cleanText);
+
+      // 🛡️ SAFETY NET: Hard-filter forbidden exercises for wheelchair/seated users
+      if (mobilityStatus == 'Wheelchair User' || mobilityStatus == 'Seated Only') {
+        exercises = _filterForSeatedOnly(exercises, workoutCount);
+      }
 
       // Fetch visuals from ExerciseDB for the generated exercises
       // Load DB first
@@ -366,6 +413,63 @@ class AiService {
       await _loadExerciseDb(); // Ensure DB is loaded for fallback too
       return await _attachVisuals(fallback);
     }
+  }
+
+  /// Hard safety-net filter: removes any standing/floor exercises for wheelchair users
+  /// and replaces them with seated alternatives to guarantee accessibility.
+  static const List<String> _forbiddenForSeated = [
+    'push up', 'push-up', 'pushup', 'pushups', 'push ups',
+    'squat', 'squats', 'bodyweight squat', 'barbell squat', 'goblet squat',
+    'lunge', 'lunges', 'walking lunge',
+    'jumping jack', 'jumping jacks', 'star jump',
+    'burpee', 'burpees', 'frog hops',
+    'mountain climber', 'mountain climbers',
+    'high knees', 'high knee',
+    'plank', 'side plank', 'side bridge',
+    'deadlift', 'barbell deadlift', 'romanian deadlift',
+    'standing calf raise', 'standing calf raises', 'calf raise', 'calf raises',
+    'box jump', 'box jumps', 'bench jump',
+    'jump rope', 'skipping', 'broad jump',
+    'tuck jump', 'scissor jump',
+    'bear crawl', 'spider crawl', 'inchworm',
+    'superman', 'glute kickback', 'donkey kick',
+    'step up', 'step ups', 'hip thrust',
+  ];
+
+  static const List<Map<String, dynamic>> _seatedExercisePool = [
+    {"name": "Seated Dumbbell Curl", "duration": 40, "calories": 5, "intensity": 4, "muscle_group": "Arms", "emoji": "💪", "instruction": "Curl those dumbbells from your chair — strong arms, strong bear! 🐻"},
+    {"name": "Seated Shoulder Press", "duration": 40, "calories": 6, "intensity": 5, "muscle_group": "Shoulders", "emoji": "🏋️", "instruction": "Press up overhead while seated — great form, champion! 🐻"},
+    {"name": "Seated Arm Circles", "duration": 30, "calories": 3, "intensity": 2, "muscle_group": "Shoulders", "emoji": "🔄", "instruction": "Big circles with your arms — warming up those shoulders! 🐻"},
+    {"name": "Chair Dips", "duration": 35, "calories": 5, "intensity": 5, "muscle_group": "Arms", "emoji": "💪", "instruction": "Use those armrests to dip — triceps of steel! 🐻"},
+    {"name": "Seated Russian Twist", "duration": 40, "calories": 5, "intensity": 5, "muscle_group": "Core", "emoji": "🔥", "instruction": "Twist side to side from your seat — core crusher! 🐻"},
+    {"name": "Seated Shadow Boxing", "duration": 45, "calories": 8, "intensity": 6, "muscle_group": "Full Body", "emoji": "🥊", "instruction": "Punch the air with power — cardio from your chair! 🐻"},
+    {"name": "Resistance Band Pull-Apart", "duration": 35, "calories": 4, "intensity": 4, "muscle_group": "Back", "emoji": "🎯", "instruction": "Pull that band apart at chest height — back muscles firing! 🐻"},
+    {"name": "Seated Knee Raises", "duration": 35, "calories": 4, "intensity": 4, "muscle_group": "Core", "emoji": "🦵", "instruction": "Lift those knees up from your seat — core work! 🐻"},
+    {"name": "Wrist Curls", "duration": 30, "calories": 2, "intensity": 2, "muscle_group": "Arms", "emoji": "✊", "instruction": "Curl at the wrist — forearm power! 🐻"},
+    {"name": "Seated Lateral Raise", "duration": 35, "calories": 4, "intensity": 4, "muscle_group": "Shoulders", "emoji": "🦅", "instruction": "Raise arms to the side while seated — shoulder sculpting! 🐻"},
+  ];
+
+  List<dynamic> _filterForSeatedOnly(List<dynamic> exercises, int targetCount) {
+    int replacementIdx = 0;
+    List<dynamic> filtered = [];
+
+    for (var ex in exercises) {
+      final name = (ex['name'] ?? '').toString().toLowerCase().trim();
+      final isForbidden = _forbiddenForSeated.any((f) =>
+        name.contains(f) || f.contains(name));
+
+      if (isForbidden) {
+        // Replace with a seated alternative
+        filtered.add(Map<String, dynamic>.from(
+          _seatedExercisePool[replacementIdx % _seatedExercisePool.length]));
+        replacementIdx++;
+        print("♿ Filtered out '$name' — replaced with seated alternative");
+      } else {
+        filtered.add(ex);
+      }
+    }
+
+    return filtered;
   }
 
   Future<List<dynamic>> _attachVisuals(List<dynamic> exercises) async {
@@ -682,12 +786,12 @@ IMPORTANT MEMORY RULES:
       await _initializeChatSession(previousMessages);
 
       // Send message through Cloud Function with full history
-      final result = await _functions.httpsCallable('geminiChat').call({
+      final result = await _callFunction('geminiChat', {
         'message': userMessage,
         'history': _chatHistory,
       });
       
-      final responseText = result.data['text'] ?? "Let's workout! 🐻";
+      final responseText = result['text'] ?? "Let's workout! 🐻";
       
       // Update local history for next call
       _chatHistory.add({'role': 'user', 'text': userMessage});
@@ -699,10 +803,10 @@ IMPORTANT MEMORY RULES:
       // Fallback to stateless call if session fails
       try {
         final prompt = '''$_personaPrompt \nUSER: "$userMessage"\nREPLY (Short):''';
-        final result = await _functions.httpsCallable('geminiGenerate').call({
+        final result = await _callFunction('geminiGenerate', {
           'prompt': prompt,
         });
-        return result.data['text'] ?? "Let's workout! 🐻";
+        return result['text'] ?? "Let's workout! 🐻";
       } catch (e2) {
         return "I'm having trouble connecting! Keep moving! 🐻";
       }
@@ -750,14 +854,14 @@ RETURN JSON ONLY:
     try {
       final imageBase64 = base64Encode(imageBytes);
       
-      final result = await _functions.httpsCallable('geminiVision').call({
+      final result = await _callFunction('geminiVision', {
         'prompt': prompt,
         'imageBase64': imageBase64,
         'mimeType': 'image/jpeg',
         'responseMimeType': 'application/json',
       });
 
-      String cleanText = result.data['text'] ?? "{}";
+      String cleanText = result['text'] ?? "{}";
       cleanText = cleanText.replaceAll('```json', '').replaceAll('```', '').trim();
       return jsonDecode(cleanText);
     } catch (e) {

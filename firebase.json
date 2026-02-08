@@ -8,6 +8,34 @@
     ],
     "rewrites": [
       {
+        "source": "/api/geminiGenerate",
+        "function": {
+          "functionId": "geminiGenerate",
+          "region": "us-central1"
+        }
+      },
+      {
+        "source": "/api/geminiChat",
+        "function": {
+          "functionId": "geminiChat",
+          "region": "us-central1"
+        }
+      },
+      {
+        "source": "/api/geminiVision",
+        "function": {
+          "functionId": "geminiVision",
+          "region": "us-central1"
+        }
+      },
+      {
+        "source": "/api/elevenLabsTts",
+        "function": {
+          "functionId": "elevenLabsTts",
+          "region": "us-central1"
+        }
+      },
+      {
         "source": "**",
         "destination": "/index.html"
       }
