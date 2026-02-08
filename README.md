@@ -10,6 +10,8 @@
 
 Fittie is an intelligent fitness companion that generates **personalized workout routines in real-time** using Google Gemini 3. Unlike traditional fitness apps with static workout templates, Fittie adapts every session to your current energy levels, physical capabilities, stress state, and available equipment — all wrapped in a bold **neo-brutalist** design language with a custom kawaii polar bear mascot.
 
+**Inclusive by design** — Fittie supports wheelchair users, 11 chronic conditions (fibromyalgia, MS, CFS, POTS, and more), Spoon Theory energy tracking, and voice-first hands-free coaching for screen-free workouts.
+
 <div align="center">
 
 **No two workouts are ever the same.**
@@ -193,11 +195,22 @@ The entire UI dynamically morphs — colors, gradients, mascot messages, and voi
 - **Blog detail pages** — Full-content view with author info, timestamps, tag chips
 - **Role-based visibility** — Non-admins see only approved posts; admins see all including pending with yellow badges
 
+### ♿ Inclusivity & Accessibility
+- **Seated/Wheelchair Mode** — 6 mobility options: Full Mobility, Wheelchair User, Limited Lower Body, Limited Upper Body, Seated Only, Crutches/Walker
+- **11 chronic conditions supported** — Fibromyalgia, MS, CFS, Arthritis, POTS, Cerebral Palsy, Spinal Cord Injury, Amputation, Visual Impairment, Hearing Impairment
+- **Spoonie Scale** — Energy measured in spoons (1–5) instead of percentages for users with chronic fatigue conditions (Spoon Theory)
+- **Voice-First Coaching** — Hands-free workout control via `speech_to_text`; say "pause", "resume", "next", "skip", "help", or "quit"
+- **Voice exercise explanations** — Say "help" or "how do I do this?" and Gemini explains the exercise aloud for screen-free use
+- **Adaptive AI rules** — Wheelchair users get seated-only exercises; limited mobility reduces volume; chronic conditions reduce intensity 30%; POTS avoids sudden position changes; visual impairment gets extra-detailed verbal instructions
+- **Accessibility step in signup** — Dedicated Step 3b collects mobility status, conditions, Spoonie preference, and voice-first preference
+- **Mobility badge** on dashboard energy display for non-full-mobility users
+
 ### 🔐 Authentication & Onboarding
-- **5-step animated signup wizard** with mascot audio narration at each step:
+- **6-step animated signup wizard** with mascot audio narration at each step:
   1. Name, email, password
   2. Age, weight, height
   3. Stress level slider, activity level
+  3b. ♿ Accessibility (mobility status, chronic conditions, Spoonie Scale, Voice-First)
   4. Equipment, injuries, goals (multi-select)
   5. Extra notes/preferences
 - **Email verification** with auto-polling (3s interval) and resend cooldown
@@ -221,7 +234,7 @@ The entire UI dynamically morphs — colors, gradients, mascot messages, and voi
 
 ### 1. Onboarding
 
-New users complete a **5-step animated wizard** guided by the kawaii polar bear mascot (with audio narration). Each step collects progressively more detailed fitness data — from basics (name, email) through physical stats (age, weight, height) to fitness context (equipment, injuries, goals). Accent colors cycle through teal → purple → orange → yellow → pink per step.
+New users complete a **6-step animated wizard** guided by the kawaii polar bear mascot (with audio narration). Each step collects progressively more detailed fitness data — from basics (name, email) through physical stats (age, weight, height) and accessibility preferences (mobility status, chronic conditions, Spoonie Scale, Voice-First mode) to fitness context (equipment, injuries, goals). Accent colors cycle through teal → purple → orange → blue → yellow → pink per step.
 
 ### 2. Dashboard
 
@@ -242,8 +255,9 @@ When a user starts a workout:
 2. **AI generation** — Loading screen while Gemini creates the routine
 3. **Preview phase** — 10-second countdown per exercise with voice announcement and GIF demo
 4. **Active phase** — Timed execution with progress bar, exercise visual, calorie counter
-5. **Controls** — Pause/play, skip to next
-6. **Completion** — Total duration, total calories, exercise count logged to Firestore with celebration dialog
+5. **Controls** — Pause/play, skip to next, voice commands (pause, resume, next, help, quit)
+6. **Voice-First mode** — Mic auto-listens; say "help" for Gemini verbal exercise explanation
+7. **Completion** — Total duration, total calories, exercise count logged to Firestore with celebration dialog
 
 ### 4. Progress Tracking
 
@@ -289,7 +303,7 @@ When a user starts a workout:
 
 ### Data Flow
 
-1. **User Input** → Energy level, mood, preferences, physical stats
+1. **User Input** → Energy level, mood, preferences, physical stats, accessibility profile
 2. **Context Building** → AppState aggregates profile + 50-workout history + equipment
 3. **Gemini Request** → Structured prompt with full context sent to Gemini 3 Flash
 4. **Response Processing** → JSON parsed → exercises matched to visual DB (multi-tier matching)
@@ -328,6 +342,11 @@ The UI dynamically morphs based on the user's energy mode:
 - Touch targets minimum 44×44px
 - Scroll-triggered `FadeSlideIn` entrance animations
 - `ClipRect` / `Clip.hardEdge` to prevent overflow during animations
+- **Seated/Wheelchair Mode** — Mobility-aware workout generation
+- **Spoonie Scale** — Spoon Theory energy system for chronic conditions
+- **Voice-First Coaching** — Screen-free workout control via speech recognition
+- **11 chronic conditions** with tailored AI exercise rules
+- **Adaptive intensity** — AI auto-reduces intensity for fatigue conditions
 
 ### Custom Mascot — Kawaii Polar Bear
 
@@ -357,6 +376,7 @@ A fully hand-drawn `CustomPaint` animated polar bear that:
 | google_generative_ai | 0.4.0 | Gemini 3 Flash (workout gen, chat, vision) |
 | http | 1.2.0 | ElevenLabs TTS API calls |
 | flutter_tts | 4.2.5 | Native TTS fallback |
+| speech_to_text | 7.0.0 | Voice commands during workouts |
 | audioplayers | 6.0.0 | Audio playback (mascot voice, TTS) |
 | flutter_dotenv | 5.2.1 | Secure API key management |
 
@@ -402,7 +422,7 @@ fittie/
 │   │   ├── brutalist_page_shell.dart    # Shared layout (header, footer, dots, grain)
 │   │   │
 │   │   ├── login_page.dart              # Auth + Remember Me toggle
-│   │   ├── signup_page.dart             # 5-step wizard with mascot audio
+│   │   ├── signup_page.dart             # 6-step wizard with mascot audio + accessibility
 │   │   ├── verify_email_page.dart       # Auto-polling email verification
 │   │   │
 │   │   ├── dashboard_page.dart          # 4-tab dashboard (Home/Workouts/Chat/Profile)

@@ -288,6 +288,8 @@ class _LandingPageState extends State<LandingPage>
                     const SizedBox(height: 100),
                     StepsSection(isMobile: isMobile),
                     const SizedBox(height: 100),
+                    InclusivitySection(isMobile: isMobile),
+                    const SizedBox(height: 100),
                     const CTASection(),
                     FooterSection(isMobile: isMobile),
                   ],
@@ -1104,6 +1106,257 @@ class StepsSection extends StatelessWidget {
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+// --- INCLUSIVITY SECTION ---
+class InclusivitySection extends StatelessWidget {
+  final bool isMobile;
+  const InclusivitySection({super.key, required this.isMobile});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(vertical: 120, horizontal: 24),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF0F4FF),
+        border: const Border(
+          top: BorderSide(color: Color(0xFF3B82F6), width: 5),
+          bottom: BorderSide(color: Color(0xFF3B82F6), width: 5),
+        ),
+      ),
+      child: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: AppDimensions.maxWidth),
+          child: Column(
+            children: [
+              FadeSlideIn(
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF3B82F6),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: AppColors.borderBlack, width: 2.5),
+                    boxShadow: const [
+                      BoxShadow(color: AppColors.borderBlack, offset: Offset(3, 3))
+                    ],
+                  ),
+                  child: Text("BUILT FOR EVERY BODY",
+                      style: GoogleFonts.inter(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w900,
+                          color: Colors.white,
+                          letterSpacing: 2)),
+                ),
+              ),
+              const SizedBox(height: 16),
+              FadeSlideIn(
+                delayMs: 100,
+                child: Text("Inclusive by Design.",
+                    textAlign: TextAlign.center,
+                    style: GoogleFonts.inter(
+                        fontSize: isMobile ? 36 : 56,
+                        fontWeight: FontWeight.w900,
+                        color: AppColors.textDark,
+                        letterSpacing: -2)),
+              ),
+              const SizedBox(height: 24),
+              FadeSlideIn(
+                delayMs: 200,
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 560),
+                  child: Text(
+                    "Fitness isn't one-size-fits-all. Fittie adapts to your mobility, energy capacity, and how you interact — because everyone deserves a coach that gets them.",
+                    textAlign: TextAlign.center,
+                    style: GoogleFonts.inter(
+                        fontSize: 17,
+                        color: AppColors.textSoft,
+                        height: 1.5,
+                        fontWeight: FontWeight.w500),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 64),
+              if (isMobile)
+                Column(
+                  children: [
+                    FadeSlideIn(
+                      child: _InclusivityCard(
+                        icon: "♿",
+                        title: "Seated & Wheelchair Mode",
+                        desc: "Select your mobility status during signup — wheelchair, limited mobility, crutches, or full. Gemini generates exercises that respect your body.",
+                        color: const Color(0xFF8B5CF6),
+                      ),
+                    ),
+                    const SizedBox(height: 20),
+                    FadeSlideIn(
+                      delayMs: 150,
+                      child: _InclusivityCard(
+                        icon: "\u{1F944}",
+                        title: "Spoonie Scale",
+                        desc: "Chronic fatigue, fibromyalgia, MS, POTS? Energy is measured in spoons, not percentages. Low spoons = gentle stretching and breathing only.",
+                        color: const Color(0xFF3B82F6),
+                      ),
+                    ),
+                    const SizedBox(height: 20),
+                    FadeSlideIn(
+                      delayMs: 300,
+                      child: _InclusivityCard(
+                        icon: "\u{1F399}\u{FE0F}",
+                        title: "Voice-First Coaching",
+                        desc: "Hands-free, screen-free workouts. Speak commands — pause, skip, help — and Gemini explains exercises aloud for those who can't see the screen.",
+                        color: AppColors.primaryTeal,
+                      ),
+                    ),
+                  ],
+                )
+              else
+                FadeSlideIn(
+                  delayMs: 300,
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(
+                        child: _InclusivityCard(
+                          icon: "♿",
+                          title: "Seated & Wheelchair Mode",
+                          desc: "Select your mobility status during signup — wheelchair, limited mobility, crutches, or full. Gemini generates exercises that respect your body.",
+                          color: const Color(0xFF8B5CF6),
+                        ),
+                      ),
+                      const SizedBox(width: 24),
+                      Expanded(
+                        child: _InclusivityCard(
+                          icon: "\u{1F944}",
+                          title: "Spoonie Scale",
+                          desc: "Chronic fatigue, fibromyalgia, MS, POTS? Energy is measured in spoons, not percentages. Low spoons = gentle stretching and breathing only.",
+                          color: const Color(0xFF3B82F6),
+                        ),
+                      ),
+                      const SizedBox(width: 24),
+                      Expanded(
+                        child: _InclusivityCard(
+                          icon: "\u{1F399}\u{FE0F}",
+                          title: "Voice-First Coaching",
+                          desc: "Hands-free, screen-free workouts. Speak commands — pause, skip, help — and Gemini explains exercises aloud for those who can't see the screen.",
+                          color: AppColors.primaryTeal,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              const SizedBox(height: 64),
+              FadeSlideIn(
+                delayMs: 400,
+                child: Container(
+                  padding: const EdgeInsets.all(24),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(color: AppColors.borderBlack, width: 2.5),
+                    boxShadow: const [
+                      BoxShadow(color: AppColors.borderBlack, offset: Offset(4, 4))
+                    ],
+                  ),
+                  child: Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF3B82F6).withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: const Icon(Icons.favorite_rounded, color: Color(0xFF3B82F6), size: 28),
+                      ),
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text("11 conditions supported",
+                                style: GoogleFonts.inter(
+                                    fontWeight: FontWeight.w900,
+                                    fontSize: 16,
+                                    color: AppColors.textDark)),
+                            const SizedBox(height: 4),
+                            Text(
+                              "Fibromyalgia \u2022 MS \u2022 CFS \u2022 Arthritis \u2022 POTS \u2022 Cerebral Palsy \u2022 Spinal Cord Injury \u2022 Amputation \u2022 Visual Impairment \u2022 Hearing Impairment \u2022 and more",
+                              style: GoogleFonts.inter(
+                                  fontSize: 13,
+                                  color: AppColors.textSoft,
+                                  fontWeight: FontWeight.w500,
+                                  height: 1.4),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _InclusivityCard extends StatelessWidget {
+  final String icon;
+  final String title;
+  final String desc;
+  final Color color;
+
+  const _InclusivityCard({
+    required this.icon,
+    required this.title,
+    required this.desc,
+    required this.color,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(28),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: AppColors.borderBlack, width: 2.5),
+        boxShadow: [
+          BoxShadow(color: AppColors.borderBlack, offset: const Offset(5, 5)),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: color.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: color, width: 2),
+            ),
+            child: Text(icon, style: const TextStyle(fontSize: 28)),
+          ),
+          const SizedBox(height: 20),
+          Text(title,
+              style: GoogleFonts.inter(
+                  fontWeight: FontWeight.w900,
+                  fontSize: 18,
+                  color: AppColors.textDark,
+                  letterSpacing: -0.3)),
+          const SizedBox(height: 10),
+          Text(desc,
+              style: GoogleFonts.inter(
+                  fontSize: 14,
+                  color: AppColors.textSoft,
+                  height: 1.5,
+                  fontWeight: FontWeight.w500)),
+        ],
       ),
     );
   }
