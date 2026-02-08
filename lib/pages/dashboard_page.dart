@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:cloud_firestore/cloud_firestore.dart'; 
 import 'package:intl/intl.dart'; 
+import 'package:google_fonts/google_fonts.dart';
 
 import '../providers/app_state.dart';
 import '../widgets/kawaii_bear.dart'; 
@@ -10,9 +11,16 @@ import '../services/firebase_service.dart';
 import '../services/ai_service.dart';
 import 'workout_session_page.dart';
 import 'login_page.dart'; 
+import '../widgets/weekly_activity_chart.dart'; 
 
 // --- 1. SHARED THEME UTILS ---
 class AppColors {
+  // New gradient palette (mint → yellow)
+  static const mintGreen = Color(0xFFC4F7E5);
+  static const limeYellow = Color(0xFFE8F5A3);
+  static const softPink = Color(0xFFFFF0F5);
+  
+  // Legacy colors (keeping for compatibility)
   static const bgCream = Color(0xFFFDFBF7);
   static const primaryTeal = Color(0xFF38B2AC);
   static const textDark = Color(0xFF2D3748);
@@ -21,13 +29,18 @@ class AppColors {
   static const errorRed = Color(0xFFE53E3E);
   
   static const powerRed = Color(0xFFFF6B6B);
-  static const zenGreen = Color(0xFF88D8B0);
+  static const zenGreen = Color(0xFF48BB78);
   static const streakGold = Color(0xFFFFC107);
+  static const accentPurple = Color(0xFF805AD5);
+  static const accentOrange = Color(0xFFED8936);
   
-  static const cardSurface = Colors.white;
-  static const blackAccent = Color(0xFF000000); 
+  static const cardSurface = Color(0xFFFFFEFC);
+  static const blackAccent = Color(0xFF1F2937); 
   static const lightTeal = Color(0xFFE6FFFA);
   static const borderTeal = Color(0xFF2C7A7B);
+  
+  // Soft shadow for modern cards
+  static const shadowColor = Color(0x15000000);
 }
 
 class DashboardPage extends StatefulWidget {
@@ -38,7 +51,8 @@ class DashboardPage extends StatefulWidget {
 }
 
 class _DashboardPageState extends State<DashboardPage> {
-  int _selectedIndex = 0; 
+  int _selectedIndex = 0;
+  bool _sidebarExpanded = false; // Collapsible sidebar state
 
   static const List<Widget> _screens = <Widget>[
     HomePage(),      
@@ -51,6 +65,10 @@ class _DashboardPageState extends State<DashboardPage> {
     setState(() => _selectedIndex = index);
   }
 
+  void _toggleSidebar() {
+    setState(() => _sidebarExpanded = !_sidebarExpanded);
+  }
+
   @override
   Widget build(BuildContext context) {
     final state = context.watch<AppState>();
@@ -60,26 +78,37 @@ class _DashboardPageState extends State<DashboardPage> {
         bool isWide = constraints.maxWidth > 900;
 
         return Scaffold(
-          backgroundColor: state.backgroundColor,
+          backgroundColor: Colors.transparent,
           extendBody: false, 
           resizeToAvoidBottomInset: true, 
-          body: Row(
-            children: [
-              if (isWide) _buildImprovedWebSidebar(state),
-              Expanded(
-                child: Stack(
-                  children: [
-                    if (isWide) const _WebBackgroundDecorations(),
-                    Center(
-                      child: Container(
-                        constraints: BoxConstraints(maxWidth: isWide ? 1000 : 600),
-                        child: _screens.elementAt(_selectedIndex),
-                      ),
-                    ),
-                  ],
-                ),
+          body: Container(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [
+                  state.gradientStart,
+                  state.gradientEnd,
+                ],
               ),
-            ],
+            ),
+            child: Row(
+              children: [
+                if (isWide) _buildImprovedWebSidebar(state),
+                Expanded(
+                  child: Stack(
+                    children: [
+                      Center(
+                        child: Container(
+                          constraints: BoxConstraints(maxWidth: isWide ? 1000 : 600),
+                          child: _screens.elementAt(_selectedIndex),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
           ),
           bottomNavigationBar: isWide ? null : _buildMobileNavBar(state),
         );
@@ -88,75 +117,95 @@ class _DashboardPageState extends State<DashboardPage> {
   }
 
   Widget _buildImprovedWebSidebar(AppState state) {
-    return Container(
-      width: 260,
-      decoration: BoxDecoration(
-        color: state.surfaceColor,
-        border: Border(right: BorderSide(color: state.textColor, width: 3)),
-      ),
-      child: Column(
-        children: [
-          const SizedBox(height: 48),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 24),
-            child: Row(
-              children: [
-                const FittieLogo(size: 40),
-                const SizedBox(width: 12),
-                Text("FITTIE", style: GoogleFonts.inter(fontWeight: FontWeight.w900, fontSize: 24, letterSpacing: -1, color: state.textColor)),
-              ],
-            ),
-          ),
-          const SizedBox(height: 48),
-          _buildSidebarItem(0, "Dashboard", Icons.dashboard_rounded, state),
-          _buildSidebarItem(1, "Your Flows", Icons.bolt_rounded, state),
-          _buildSidebarItem(2, "Fittie Chat", Icons.chat_bubble_rounded, state),
-          _buildSidebarItem(3, "My Profile", Icons.person_rounded, state),
-          const Spacer(),
-          Padding(
-            padding: const EdgeInsets.all(24.0),
-            child: Container(
-              padding: const EdgeInsets.all(16),
+    final sidebarWidth = _sidebarExpanded ? 220.0 : 80.0;
+    
+    return MouseRegion(
+      onEnter: (_) => setState(() => _sidebarExpanded = true),
+      onExit: (_) => setState(() => _sidebarExpanded = false),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        curve: Curves.easeOut,
+        width: sidebarWidth,
+        margin: const EdgeInsets.all(16),
+        clipBehavior: Clip.antiAlias,
+        decoration: BoxDecoration(
+          color: AppColors.cardSurface,
+          borderRadius: BorderRadius.circular(24),
+          border: Border.all(color: AppColors.blackAccent, width: 2.5),
+          boxShadow: [
+            BoxShadow(color: AppColors.blackAccent, offset: const Offset(4, 4)),
+          ],
+        ),
+        child: Column(
+          children: [
+            const SizedBox(height: 24),
+            // Logo
+            Container(
+              padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: AppColors.primaryTeal.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(14),
-                border: Border.all(color: AppColors.primaryTeal, width: 2),
+                color: state.primaryColor.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: AppColors.blackAccent, width: 2),
               ),
-              child: Row(
-                children: [
-                  const Icon(Icons.auto_awesome, color: AppColors.primaryTeal, size: 20),
-                  const SizedBox(width: 12),
-                  Text(state.mode.name.toUpperCase(), style: GoogleFonts.inter(fontWeight: FontWeight.w900, color: AppColors.primaryTeal, fontSize: 12)),
-                ],
-              ),
+              child: const FittieLogo(size: 32),
             ),
-          ),
-        ],
+            const SizedBox(height: 32),
+            // Nav items
+            _buildSidebarItem(0, 'Dashboard', Icons.dashboard_rounded, state),
+            _buildSidebarItem(1, 'Workouts', Icons.bolt_rounded, state),
+            _buildSidebarItem(2, 'Chat', Icons.chat_bubble_rounded, state),
+            _buildSidebarItem(3, 'Profile', Icons.person_rounded, state),
+            const Spacer(),
+            // Settings
+            Padding(
+              padding: const EdgeInsets.only(bottom: 24),
+              child: _buildSidebarItem(-1, 'Settings', Icons.settings_outlined, state, isSettings: true),
+            ),
+          ],
+        ),
       ),
     );
   }
 
-  Widget _buildSidebarItem(int index, String label, IconData icon, AppState state) {
-    bool isSelected = _selectedIndex == index;
+  Widget _buildSidebarItem(int index, String label, IconData icon, AppState state, {bool isSettings = false}) {
+    bool isSelected = !isSettings && _selectedIndex == index;
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       child: InkWell(
-        onTap: () => _onItemTapped(index),
-        borderRadius: BorderRadius.circular(16),
+        onTap: isSettings ? null : () => _onItemTapped(index),
+        borderRadius: BorderRadius.circular(14),
         child: AnimatedContainer(
-          duration: const Duration(milliseconds: 200),
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          duration: const Duration(milliseconds: 150),
+          padding: const EdgeInsets.all(14),
           decoration: BoxDecoration(
-            color: isSelected ? AppColors.primaryTeal : Colors.transparent,
+            color: isSelected ? state.primaryColor : Colors.transparent,
             borderRadius: BorderRadius.circular(14),
-            border: Border.all(color: isSelected ? AppColors.blackAccent : Colors.transparent, width: 2.5),
-            boxShadow: isSelected ? [const BoxShadow(color: AppColors.blackAccent, offset: Offset(3, 3))] : [],
+            border: isSelected ? Border.all(color: AppColors.blackAccent, width: 2) : null,
+            boxShadow: isSelected 
+              ? [BoxShadow(color: AppColors.blackAccent, offset: const Offset(2, 2))]
+              : [],
           ),
           child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
             children: [
               Icon(icon, color: isSelected ? Colors.white : AppColors.textSoft, size: 24),
-              const SizedBox(width: 16),
-              Text(label, style: GoogleFonts.inter(fontWeight: FontWeight.w800, color: isSelected ? Colors.white : state.textColor, fontSize: 16)),
+              if (_sidebarExpanded) ...[
+                const SizedBox(width: 14),
+                Expanded(
+                  child: AnimatedOpacity(
+                    duration: const Duration(milliseconds: 150),
+                    opacity: _sidebarExpanded ? 1.0 : 0.0,
+                    child: Text(label, 
+                      overflow: TextOverflow.ellipsis,
+                      style: GoogleFonts.inter(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w700,
+                        color: isSelected ? Colors.white : AppColors.textDark,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
             ],
           ),
         ),
@@ -164,33 +213,44 @@ class _DashboardPageState extends State<DashboardPage> {
     );
   }
 
+
   Widget _buildMobileNavBar(AppState state) {
-    return Container(
-      margin: const EdgeInsets.fromLTRB(24, 0, 24, 24),
-      decoration: BoxDecoration(
-        color: state.surfaceColor, 
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: AppColors.blackAccent, width: 2.5),
-        boxShadow: const [BoxShadow(color: AppColors.blackAccent, offset: Offset(0, 4))],
-      ),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(14),
-        child: BottomNavigationBar(
-          items: const <BottomNavigationBarItem>[
-            BottomNavigationBarItem(icon: Icon(Icons.dashboard_rounded), label: 'Home'),
-            BottomNavigationBarItem(icon: Icon(Icons.bolt_rounded), label: 'Flows'),
-            BottomNavigationBarItem(icon: Icon(Icons.chat_bubble_rounded), label: 'Chat'),
-            BottomNavigationBarItem(icon: Icon(Icons.person_rounded), label: 'Profile'),
-          ],
-          currentIndex: _selectedIndex,
-          selectedItemColor: AppColors.primaryTeal,
-          unselectedItemColor: Colors.grey[400],
-          backgroundColor: state.surfaceColor, 
-          elevation: 0,
-          showUnselectedLabels: false,
-          showSelectedLabels: false,
-          type: BottomNavigationBarType.fixed,
-          onTap: _onItemTapped,
+    return ClipRRect(
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+        child: Container(
+          margin: const EdgeInsets.fromLTRB(24, 0, 24, 24),
+          decoration: BoxDecoration(
+            color: AppColors.cardSurface,
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: AppColors.blackAccent, width: 2.5),
+            boxShadow: const [
+              BoxShadow(
+                color: AppColors.blackAccent,
+                offset: Offset(4, 4),
+              ),
+            ],
+          ),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(20),
+            child: BottomNavigationBar(
+              items: const <BottomNavigationBarItem>[
+                BottomNavigationBarItem(icon: Icon(Icons.dashboard_rounded), label: 'Home'),
+                BottomNavigationBarItem(icon: Icon(Icons.bolt_rounded), label: 'Flows'),
+                BottomNavigationBarItem(icon: Icon(Icons.chat_bubble_rounded), label: 'Chat'),
+                BottomNavigationBarItem(icon: Icon(Icons.person_rounded), label: 'Profile'),
+              ],
+              currentIndex: _selectedIndex,
+              selectedItemColor: AppColors.primaryTeal,
+              unselectedItemColor: AppColors.textSoft,
+              backgroundColor: Colors.transparent,
+              elevation: 0,
+              showUnselectedLabels: false,
+              showSelectedLabels: false,
+              type: BottomNavigationBarType.fixed,
+              onTap: _onItemTapped,
+            ),
+          ),
         ),
       ),
     );
@@ -218,6 +278,7 @@ class _HomePageState extends State<HomePage> {
   
   List<int> _loggedWeekdays = <int>[]; 
   double _todayCalories = 0;
+  List<double> _weeklyCalories = [];
   
   List<Map<String, dynamic>> _todaysBreakdown = [];
 
@@ -339,9 +400,11 @@ class _HomePageState extends State<HomePage> {
       setState(() {
         _currentStreak = streak;
         _loggedWeekdays = loggedDays;
-        _todayCalories = weeklyData.isNotEmpty ? weeklyData.last : 0.0;
+        _weeklyCalories = weeklyData;
+        _todayCalories = weeklyData.isNotEmpty ? weeklyData.last : 0;
         _todaysBreakdown = breakdown;
       });
+
     }
   }
 
@@ -472,6 +535,15 @@ class _HomePageState extends State<HomePage> {
           _buildActionAndMascot(state),
           const SizedBox(height: 28),
 
+
+
+          // --- WEEKLY CHART ---
+          WeeklyActivityChart(
+            weeklyData: _weeklyCalories,
+            primaryColor: state.primaryColor,
+          ),
+          const SizedBox(height: 28),
+
           Text("TODAY'S BREAKDOWN",
               style: GoogleFonts.inter(
                   fontSize: 11,
@@ -542,21 +614,20 @@ class _HomePageState extends State<HomePage> {
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(14),
+        color: AppColors.cardSurface,
+        borderRadius: BorderRadius.circular(20),
         border: Border.all(color: AppColors.blackAccent, width: 2.5),
-        boxShadow: const [
-          BoxShadow(color: AppColors.blackAccent, offset: Offset(4, 4))
+        boxShadow: [
+          BoxShadow(color: AppColors.blackAccent, offset: const Offset(4, 4)),
         ],
       ),
       child: Row(
         children: [
           Container(
-            padding: const EdgeInsets.all(12),
+            padding: const EdgeInsets.all(14),
             decoration: BoxDecoration(
-              color: AppColors.primaryTeal.withOpacity(0.12),
-              borderRadius: BorderRadius.circular(10),
-              border: Border.all(color: AppColors.primaryTeal, width: 2),
+              color: AppColors.primaryTeal.withOpacity(0.15),
+              borderRadius: BorderRadius.circular(14),
             ),
             child: const Icon(Icons.bolt_rounded,
                 color: AppColors.primaryTeal, size: 28),
@@ -695,11 +766,11 @@ class _HomePageState extends State<HomePage> {
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(14),
+        color: AppColors.cardSurface,
+        borderRadius: BorderRadius.circular(20),
         border: Border.all(color: AppColors.blackAccent, width: 2.5),
-        boxShadow: const [
-          BoxShadow(color: AppColors.blackAccent, offset: Offset(4, 4))
+        boxShadow: [
+          BoxShadow(color: AppColors.blackAccent, offset: const Offset(4, 4)),
         ],
       ),
       child: Column(
@@ -708,11 +779,10 @@ class _HomePageState extends State<HomePage> {
           Row(
             children: [
               Container(
-                padding: const EdgeInsets.all(10),
+                padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: const Color(0xFFFFF3E0),
-                  borderRadius: BorderRadius.circular(10),
-                  border: Border.all(color: Colors.orange, width: 2),
+                  color: Colors.orange.withOpacity(0.15),
+                  borderRadius: BorderRadius.circular(14),
                 ),
                 child: const Icon(Icons.local_fire_department_rounded,
                     color: Colors.orange, size: 28),
@@ -837,24 +907,23 @@ class _HomePageState extends State<HomePage> {
     return Container(
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(14),
+        color: AppColors.cardSurface,
+        borderRadius: BorderRadius.circular(20),
         border: Border.all(color: AppColors.blackAccent, width: 2.5),
-        boxShadow: const [
-          BoxShadow(color: AppColors.blackAccent, offset: Offset(4, 4))
+        boxShadow: [
+          BoxShadow(color: AppColors.blackAccent, offset: const Offset(4, 4)),
         ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Container(
-            padding: const EdgeInsets.all(8),
+            padding: const EdgeInsets.all(10),
             decoration: BoxDecoration(
-              color: accent.withOpacity(0.12),
-              borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: accent, width: 1.5),
+              color: accent.withOpacity(0.15),
+              borderRadius: BorderRadius.circular(12),
             ),
-            child: Icon(icon, color: accent, size: 20),
+            child: Icon(icon, color: accent, size: 22),
           ),
           const SizedBox(height: 14),
           Text(value,
@@ -862,12 +931,30 @@ class _HomePageState extends State<HomePage> {
                   fontSize: 28,
                   fontWeight: FontWeight.w900,
                   color: AppColors.textDark)),
-          Text(unit,
-              style: GoogleFonts.inter(
-                  fontSize: 11,
-                  fontWeight: FontWeight.w800,
-                  color: AppColors.textSoft,
-                  letterSpacing: 0.5)),
+          const SizedBox(height: 2),
+          Row(
+            children: [
+              Text(unit,
+                  style: GoogleFonts.inter(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: AppColors.textSoft)),
+              const Spacer(),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                decoration: BoxDecoration(
+                  color: accent.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: Text(title,
+                    style: GoogleFonts.inter(
+                        fontSize: 8,
+                        fontWeight: FontWeight.w800,
+                        color: accent,
+                        letterSpacing: 0.5)),
+              ),
+            ],
+          ),
         ],
       ),
     );
@@ -885,12 +972,15 @@ class _HomePageState extends State<HomePage> {
               onTap: _isQuickLoading ? null : _onQuickAction,
               child: Container(
                 decoration: BoxDecoration(
-                  color: AppColors.blackAccent,
-                  borderRadius: BorderRadius.circular(14),
+                  gradient: LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [state.primaryColor, state.primaryColor.withOpacity(0.8)],
+                  ),
+                  borderRadius: BorderRadius.circular(20),
                   border: Border.all(color: AppColors.blackAccent, width: 2.5),
-                  boxShadow: const [
-                    BoxShadow(
-                        color: AppColors.blackAccent, offset: Offset(4, 4))
+                  boxShadow: [
+                    BoxShadow(color: AppColors.blackAccent, offset: const Offset(4, 4)),
                   ],
                 ),
                 child: Stack(
@@ -900,7 +990,7 @@ class _HomePageState extends State<HomePage> {
                       bottom: -10,
                       child: Icon(Icons.play_circle_filled,
                           size: 80,
-                          color: AppColors.primaryTeal.withOpacity(0.15)),
+                          color: Colors.white.withOpacity(0.15)),
                     ),
                     Padding(
                       padding: const EdgeInsets.all(24.0),
@@ -921,9 +1011,9 @@ class _HomePageState extends State<HomePage> {
                                       fontWeight: FontWeight.w900)),
                           Text("QUICK FLOW",
                               style: GoogleFonts.inter(
-                                  color: AppColors.primaryTeal,
+                                  color: Colors.white.withOpacity(0.8),
                                   fontSize: 11,
-                                  fontWeight: FontWeight.w900,
+                                  fontWeight: FontWeight.w700,
                                   letterSpacing: 1.5)),
                         ],
                       ),
@@ -938,12 +1028,11 @@ class _HomePageState extends State<HomePage> {
             flex: 3,
             child: Container(
               decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(14),
+                color: AppColors.cardSurface,
+                borderRadius: BorderRadius.circular(20),
                 border: Border.all(color: AppColors.blackAccent, width: 2.5),
-                boxShadow: const [
-                  BoxShadow(
-                      color: AppColors.blackAccent, offset: Offset(4, 4))
+                boxShadow: [
+                  BoxShadow(color: AppColors.blackAccent, offset: const Offset(4, 4)),
                 ],
               ),
               child: Stack(
@@ -1136,7 +1225,10 @@ class _WorkoutsPageState extends State<WorkoutsPage> {
               decoration: BoxDecoration(
                 color: AppColors.primaryTeal.withOpacity(0.12),
                 borderRadius: BorderRadius.circular(6),
-                border: Border.all(color: AppColors.primaryTeal, width: 1.5),
+                border: Border.all(color: AppColors.blackAccent, width: 2),
+                boxShadow: const [
+                  BoxShadow(color: AppColors.blackAccent, offset: Offset(2, 2)),
+                ],
               ),
               child: Text("AI GENERATOR",
                   style: GoogleFonts.inter(
@@ -1173,8 +1265,10 @@ class _WorkoutsPageState extends State<WorkoutsPage> {
                     decoration: BoxDecoration(
                       color: Colors.white.withOpacity(0.2),
                       borderRadius: BorderRadius.circular(14),
-                      border:
-                          Border.all(color: Colors.white.withOpacity(0.3), width: 2),
+                      border: Border.all(color: AppColors.blackAccent, width: 2.5),
+                      boxShadow: const [
+                        BoxShadow(color: AppColors.blackAccent, offset: Offset(3, 3))
+                      ],
                     ),
                     child:
                         const Icon(Icons.auto_awesome, size: 40, color: Colors.white),

@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:flutter/services.dart' show rootBundle;
 import 'package:google_generative_ai/google_generative_ai.dart';
 import 'package:http/http.dart' as http;
 import 'package:flutter_dotenv/flutter_dotenv.dart';
@@ -76,6 +77,30 @@ class AiService {
     _chatModel = GenerativeModel(model: 'gemini-3-flash', apiKey: _geminiKey);
   }
 
+  // Cache for the loaded exercise database
+  List<dynamic> _exerciseDb = [];
+  List<String> _availableExercises = [];
+
+  Future<void> _loadExerciseDb() async {
+    if (_exerciseDb.isNotEmpty) return;
+    try {
+      final jsonString = await rootBundle.loadString('assets/data/exercises.json');
+      _exerciseDb = jsonDecode(jsonString);
+      
+      // Filter for bodyweight/easy exercises to guide the AI
+      _availableExercises = _exerciseDb
+          .where((e) => e['equipment'] == 'body only' || e['equipment'] == null)
+          .map((e) => e['name'].toString())
+          .toList();
+          
+      // Shuffle to vary recommendations if we only take top N
+      _availableExercises.shuffle();
+      
+    } catch (e) {
+      print("Error loading exercise DB: $e");
+    }
+  }
+
   Future<List<dynamic>> generateWorkout(
     String mode,
     int energy,
@@ -107,11 +132,10 @@ class AiService {
       TASK: Create a $workoutCount-step workout routine with exactly $workoutCount exercises.
       
       ⚠️ EXERCISE NAME RULES:
-      - Use STANDARD, COMMON exercise names from this list when possible:
-        Push Ups, Squats, Lunges, Plank, Jumping Jacks, Burpees, 
-        Crunches, Sit Ups, Mountain Climbers, High Knees, 
-        Bicep Curl, Tricep Dip, Leg Raise, Glute Bridge, Russian Twist
-      - Keep names simple and recognizable
+      - YOU MUST CHOOSE from the following AVAILABLE EXERCISES list to ensure we have visual demonstrations:
+      [${_availableExercises.take(60).join(', ')}]
+      - If you need others, use STANDARD names like: Push Up, Squat, Plank, Jumping Jack, Burpee.
+      - Keep names EXACTLY as they appear in the list if possible.
       
       ⚠️ CALORIE COMPUTATION RULES:
       - Use the user's weight ($weight) and the MET (Metabolic Equivalent of Task) values for the specific exercises to calculate burned calories.
@@ -148,47 +172,176 @@ class AiService {
       List<dynamic> exercises = jsonDecode(cleanText);
 
       // 🟢 FETCH VISUALS - prioritize curated library, then Giphy search
-      final List<dynamic> exercisesWithVisuals = await Future.wait(
-        exercises.map((ex) async {
-          String exerciseName = ex['name'] ?? "exercise";
-          String gifUrl = await _fetchExerciseGif(exerciseName);
-          ex['visual_url'] = gifUrl;
-          return ex;
-        }),
-      );
+      // Load DB first
+      await _loadExerciseDb();
+      return await _attachVisuals(exercises);
 
-      return exercisesWithVisuals;
     } catch (e) {
       print("AI Error: $e");
-      return _getFallbackRoutine();
+      List<dynamic> fallback = _getFallbackRoutine(workoutCount);
+      await _loadExerciseDb(); // Ensure DB is loaded for fallback too
+      return await _attachVisuals(fallback);
     }
   }
 
-  /// Fetches exercise GIF from curated library or Giphy search
-  Future<String> _fetchExerciseGif(String exerciseName) async {
-    // Normalize the exercise name for matching
+  Future<List<dynamic>> _attachVisuals(List<dynamic> exercises) async {
+    final List<dynamic> exercisesWithVisuals = await Future.wait(
+      exercises.map((ex) async {
+        String exerciseName = ex['name'] ?? "exercise";
+        
+        // 1. Try to find EXACT/CLOSE match in DB first
+        Map<String, dynamic>? match = _findBestMatch(exerciseName);
+        List<String> visuals = [];
+        
+        if (match != null) {
+          // 🎉 Found a local match!
+          // Overwrite name to ensure UI consistency with video/image
+          ex['name'] = match['name']; 
+          
+          if (match['images'] != null && (match['images'] as List).isNotEmpty) {
+             const String baseUrl = "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/dist/exercises/";
+             visuals = (match['images'] as List).map((path) => "$baseUrl$path").toList().cast<String>();
+          }
+        } 
+        
+        // 2. If no local visuals, try Giphy/Fallback
+        if (visuals.isEmpty) {
+           visuals = await _fetchFallbackVisuals(exerciseName);
+        }
+        
+        ex['visual_url'] = visuals.isNotEmpty ? visuals.first : ""; 
+        ex['visuals'] = visuals;
+        return ex;
+      }),
+    );
+    return exercisesWithVisuals;
+  }
+  
+  Map<String, dynamic>? _findBestMatch(String inputName) {
+    if (_exerciseDb.isEmpty) return null;
+    String normalizedInput = inputName.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]'), '');
+    
+    // 1. Exact Name Match (insensitive)
+    try {
+      return _exerciseDb.firstWhere((e) => 
+        (e['name'] as String).toLowerCase().replaceAll(RegExp(r'[^a-z0-9]'), '') == normalizedInput
+      );
+    } catch (e) {/*ignore*/}
+
+    // 2. Contains Match (Forward/Backward)
+    try {
+      return _exerciseDb.firstWhere((e) {
+        String dbName = (e['name'] as String).toLowerCase().replaceAll(RegExp(r'[^a-z0-9]'), '');
+        return dbName.contains(normalizedInput) || normalizedInput.contains(dbName);
+      });
+    } catch (e) {/*ignore*/}
+
+    // 3. Token Intersection (handling "Pushups" vs "Push Up")
+    // If input has "Push" and "Up", and DB has "Push Up", that's a match.
+    List<String> inputTokens = inputName.toLowerCase().split(' ').where((s) => s.length > 2).toList();
+    if (inputTokens.isEmpty) return null;
+
+    try {
+      // Sort candidates by number of matched tokens
+      var candidates = _exerciseDb.where((e) {
+        String dbName = (e['name'] as String).toLowerCase();
+        int matches = 0;
+        for (var token in inputTokens) {
+          if (dbName.contains(token)) matches++;
+        }
+        return matches >= inputTokens.length; // strict match? or >= 1?
+      }).toList();
+      
+      if (candidates.isNotEmpty) {
+        // Return most generic name (shortest length usually implies "Squat" vs "Barbell Squat")
+        candidates.sort((a, b) => (a['name'] as String).length.compareTo((b['name'] as String).length));
+        return candidates.first;
+      }
+    } catch (e) {/*ignore*/}
+
+    return null;
+  }
+
+  Future<List<String>> _fetchFallbackVisuals(String exerciseName) async {
     String normalizedName = exerciseName.toLowerCase().trim();
     
-    // 1. First check curated library for instant reliable results
+    // Check curated
     String? curatedGif = _findCuratedGif(normalizedName);
-    if (curatedGif != null) {
-      return curatedGif;
-    }
+    if (curatedGif != null) return [curatedGif];
 
-    // 2. Try Giphy search with fitness-focused terms
+    // Giphy Search
     if (_giphyKey.isNotEmpty) {
       try {
         String? giphyGif = await _searchGiphyFitness(normalizedName);
-        if (giphyGif != null) {
-          return giphyGif;
-        }
+        if (giphyGif != null) return [giphyGif];
       } catch (e) {
         print("Giphy Error: $e");
       }
     }
 
-    // 3. Return default fallback
-    return _getFallbackGif();
+    return [_getFallbackGif()];
+  }
+
+  /// Fetches exercise visuals (List of URLs) from local DB, curated library, or Giphy
+  Future<List<String>> _fetchExerciseVisuals(String exerciseName) async {
+    String normalizedName = exerciseName.toLowerCase().trim();
+    
+    // 1. Check Local DB (Best quality - slideshows)
+    final dbVisuals = _findInExerciseDb(normalizedName);
+    if (dbVisuals.isNotEmpty) return dbVisuals;
+
+    // 2. Check curated Giphy library
+    String? curatedGif = _findCuratedGif(normalizedName);
+    if (curatedGif != null) return [curatedGif];
+
+    // 3. Try Giphy search
+    if (_giphyKey.isNotEmpty) {
+      try {
+        String? giphyGif = await _searchGiphyFitness(normalizedName);
+        if (giphyGif != null) return [giphyGif];
+      } catch (e) {
+        print("Giphy Error: $e");
+      }
+    }
+
+    // 4. Fallback
+    return [_getFallbackGif()];
+  }
+
+  /// Fuzzy search in local JSON database
+  List<String> _findInExerciseDb(String name) {
+    if (_exerciseDb.isEmpty) return [];
+
+    // Base URL for the images
+    const String baseUrl = "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/dist/exercises/";
+
+    // Direct match
+    var match = _exerciseDb.firstWhere(
+      (ex) => (ex['name'] as String).toLowerCase() == name,
+      orElse: () => null
+    );
+
+    // Fuzzy match
+    if (match == null) {
+      try {
+        match = _exerciseDb.firstWhere(
+          (ex) {
+            String dbName = (ex['name'] as String).toLowerCase();
+            return dbName.contains(name) || name.contains(dbName);
+          },
+          orElse: () => null
+        );
+      } catch (e) {
+        // ignore
+      }
+    }
+
+    if (match != null && match['images'] != null) {
+      List<dynamic> imgs = match['images'];
+      return imgs.map((path) => "$baseUrl$path").toList().cast<String>();
+    }
+
+    return [];
   }
 
   /// Search curated library with fuzzy matching
@@ -260,8 +413,8 @@ class AiService {
     return "https://media.giphy.com/media/1qfKN8Dt0CRdCRxz9q/giphy.gif";
   }
 
-  List<dynamic> _getFallbackRoutine() {
-    return [
+  List<dynamic> _getFallbackRoutine(int count) {
+    final List<Map<String, dynamic>> pool = [
       {
         "name": "Squats",
         "duration": 30,
@@ -269,9 +422,7 @@ class AiService {
         "intensity": 5,
         "muscle_group": "Legs",
         "emoji": "🦵",
-        "instruction":
-            "Stand with feet shoulder-width apart, lower down like sitting in a chair! You got this! 🐻",
-        "visual_url": _curatedExerciseGifs['squat'],
+        "instruction": "Stand with feet shoulder-width apart, lower down like sitting in a chair! You got this! 🐻",
       },
       {
         "name": "Push Ups",
@@ -280,9 +431,7 @@ class AiService {
         "intensity": 6,
         "muscle_group": "Upper Body",
         "emoji": "💪",
-        "instruction":
-            "Start in plank position, lower your chest to the ground and push back up! Bear strong! 🐻",
-        "visual_url": _curatedExerciseGifs['push up'],
+        "instruction": "Start in plank position, lower your chest to the ground and push back up! Bear strong! 🐻",
       },
       {
         "name": "Jumping Jacks",
@@ -291,11 +440,75 @@ class AiService {
         "intensity": 7,
         "muscle_group": "Full Body",
         "emoji": "⭐",
-        "instruction":
-            "Jump and spread arms and legs wide, then jump back together! Keep the energy up! 🐻",
-        "visual_url": _curatedExerciseGifs['jumping jack'],
+        "instruction": "Jump and spread arms and legs wide, then jump back together! Keep the energy up! 🐻",
+      },
+      {
+        "name": "Lunges",
+        "duration": 30,
+        "calories": 7,
+        "intensity": 6,
+        "muscle_group": "Legs",
+        "emoji": "xz",
+        "instruction": "Step forward with one leg and lower your hips. Keep your back straight! 🐻",
+      },
+      {
+        "name": "Plank",
+        "duration": 30,
+        "calories": 5,
+        "intensity": 8,
+        "muscle_group": "Core",
+        "emoji": "🧱",
+        "instruction": "Hold your body in a straight line. Engage that core! You're a sturdy bear! 🐻",
+      },
+      {
+        "name": "High Knees",
+        "duration": 30,
+        "calories": 11,
+        "intensity": 8,
+        "muscle_group": "Cardio",
+        "emoji": "🏃",
+        "instruction": "Run in place bringing your knees up high! Fast paws! 🐻",
+      },
+      {
+        "name": "Burpees",
+        "duration": 30,
+        "calories": 15,
+        "intensity": 9,
+        "muscle_group": "Full Body",
+        "emoji": "🔥",
+        "instruction": "Drop, push up, jump! It's tough but you're tougher! 🐻",
       },
     ];
+
+    List<dynamic> result = [];
+    for (int i = 0; i < count; i++) {
+      var ex = Map<String, dynamic>.from(pool[i % pool.length]);
+      // Ensure visuals are populated for fallback too
+      // We can use the async visual fetcher if we want, but synchronous fallback is safer
+      // Let's just use empty visuals and let the UI handle it or pre-populate common ones
+      // Actually, we can just leave 'visuals' empty and let the visualizer use the fallback gif or we can try to find them
+      // But _getFallbackRoutine is synchronous. 
+      // Let's add standard Giphy URLs for these common ones hardcoded if needed, or better, 
+      // since the UI now uses AiService to fetch visuals, we should probably fetch visuals for fallback too?
+      // No, generateWorkout returns the list with visuals. 
+      // If we return raw fallback here, generateWorkout's try/catch block catches AI error.
+      // But wait, the try/catch block WRAPS the AI generation.
+      // If AI fails, it calls _getFallbackRoutine(count).
+      // AND THEN it returns that result.
+      // It DOES NOT fetch visuals for the fallback routine because the visual fetching is inside the try block (lines 151-158).
+      
+      // So we must manually populate visuals here or move visual fetching outside try/catch?
+      // Moving visual fetching outside try/catch is better.
+      result.add(ex);
+    }
+    
+    // We should probably run visual fetching on the fallback result too
+    // But since this method is synchronous, we can't await.
+    // We will handle this by checking if visuals are missing in the UI? 
+    // Or better: make _getFallbackRoutine async? No, simpler to just populate standard GIFs here if possible.
+    // Or just let the caller (generateWorkout) handle visual fetching for fallback too.
+    
+    return result;
   }
 
   Future<String> chatWithFittie(String userMessage) async {

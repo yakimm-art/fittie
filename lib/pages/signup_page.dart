@@ -9,6 +9,11 @@ import 'verify_email_page.dart';
 
 // --- THEME (exported — used by other pages) ---
 class AppColors {
+  // New gradient palette
+  static const mintGreen = Color(0xFFC4F7E5);
+  static const limeYellow = Color(0xFFE8F5A3);
+  static const cardSurface = Color(0xFFFFFEFC);
+  
   static const bgCream = Color(0xFFFDFBF7);
   static const primaryTeal = Color(0xFF38B2AC);
   static const textDark = Color(0xFF2D3748);
@@ -286,13 +291,18 @@ class _SignUpPageState extends State<SignUpPage> with TickerProviderStateMixin {
       final isWide = constraints.maxWidth > 800;
 
       return Scaffold(
-        backgroundColor: AppColors.bgCream,
+        backgroundColor: Colors.transparent,
         resizeToAvoidBottomInset: true,
-        body: Stack(
-          children: [
-            const Positioned.fill(child: DotGridBackground()),
-            const BackgroundBlobs(),
-            if (isWide) const _WebDecorations(),
+        body: Container(
+          decoration: const BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [AppColors.mintGreen, AppColors.limeYellow],
+            ),
+          ),
+          child: Stack(
+            children: [
             Center(
               child: ConstrainedBox(
                 constraints: const BoxConstraints(maxWidth: 520),
@@ -480,6 +490,7 @@ class _SignUpPageState extends State<SignUpPage> with TickerProviderStateMixin {
               ),
             ),
           ],
+          ),
         ),
       );
     });

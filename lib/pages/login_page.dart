@@ -8,6 +8,11 @@ import 'dashboard_page.dart';
 
 // --- SHARED THEME CONSTANTS ---
 class AppColors {
+  // New gradient palette
+  static const mintGreen = Color(0xFFC4F7E5);
+  static const limeYellow = Color(0xFFE8F5A3);
+  static const cardSurface = Color(0xFFFFFEFC);
+  
   static const bgCream = Color(0xFFFDFBF7);
   static const primaryTeal = Color(0xFF38B2AC);
   static const primaryLight = Color(0xFFB2F5EA);
@@ -133,13 +138,17 @@ class _LoginPageState extends State<LoginPage>
     final isDesktop = w > 900;
 
     return Scaffold(
-      backgroundColor: AppColors.bgCream,
-      body: Stack(
-        children: [
-          // --- DOT GRID ---
-          const Positioned.fill(child: DotGridBackground()),
-          // --- GRAIN OVERLAY ---
-          Positioned.fill(child: CustomPaint(painter: _LoginGrainPainter())),
+      backgroundColor: Colors.transparent,
+      body: Container(
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [AppColors.mintGreen, AppColors.limeYellow],
+          ),
+        ),
+        child: Stack(
+          children: [
 
           if (isDesktop)
             // ===== DESKTOP: SPLIT LAYOUT =====
@@ -173,6 +182,7 @@ class _LoginPageState extends State<LoginPage>
             ),
           ),
         ],
+        ),
       ),
     );
   }

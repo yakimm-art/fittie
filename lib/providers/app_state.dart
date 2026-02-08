@@ -61,6 +61,25 @@ class AppState extends ChangeNotifier {
     }
   }
 
+  // 5. Gradient Colors for mood-based backgrounds
+  Color get gradientStart {
+    if (_isDarkMode) return const Color(0xFF1A1A2E);
+    switch (_mode) {
+      case FittieMode.power: return const Color(0xFFFFE5E5); // Soft pink-red
+      case FittieMode.zen: return const Color(0xFFC4F7E5);   // Mint green
+      case FittieMode.desk: return const Color(0xFFC4F7E5);  // Mint green (default)
+    }
+  }
+
+  Color get gradientEnd {
+    if (_isDarkMode) return const Color(0xFF16213E);
+    switch (_mode) {
+      case FittieMode.power: return const Color(0xFFFFD6A5); // Soft orange
+      case FittieMode.zen: return const Color(0xFFD4FCDC);   // Light lime
+      case FittieMode.desk: return const Color(0xFFE8F5A3);  // Lime yellow (default)
+    }
+  }
+
   String get mascotMessage {
     switch (_mode) {
       case FittieMode.power: return "LET'S CRUSH IT! 💪";

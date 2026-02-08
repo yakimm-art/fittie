@@ -374,13 +374,19 @@ class _WorkoutSessionPageState extends State<WorkoutSessionPage> {
                                       style: GoogleFonts.inter(fontWeight: FontWeight.w800, fontSize: 10, color: AppColors.textDark.withOpacity(0.5), letterSpacing: 1.2)
                                     ),
                                     const SizedBox(height: 4),
-                                    ClipRRect(
-                                      borderRadius: BorderRadius.circular(20),
-                                      child: LinearProgressIndicator(
-                                        value: (_currentIndex + 1) / _activeRoutine.length,
-                                        backgroundColor: Colors.black.withOpacity(0.05),
-                                        color: widget.themeColor,
-                                        minHeight: 12,
+                                    Container(
+                                      decoration: BoxDecoration(
+                                        borderRadius: BorderRadius.circular(20),
+                                        border: Border.all(color: AppColors.textDark, width: 2),
+                                      ),
+                                      child: ClipRRect(
+                                        borderRadius: BorderRadius.circular(18),
+                                        child: LinearProgressIndicator(
+                                          value: (_currentIndex + 1) / _activeRoutine.length,
+                                          backgroundColor: Colors.white,
+                                          color: widget.themeColor,
+                                          minHeight: 12,
+                                        ),
                                       ),
                                     ),
                                   ],
@@ -424,7 +430,11 @@ class _WorkoutSessionPageState extends State<WorkoutSessionPage> {
                                         child: Stack(
                                           fit: StackFit.expand,
                                           children: [
-                                            Image.network(gifUrl, fit: BoxFit.cover),
+                                            ExerciseVisualizer(
+                                              visuals: exercise['visuals'] != null 
+                                                  ? (exercise['visuals'] as List).map((e) => e.toString()).toList()
+                                                  : [gifUrl],
+                                            ),
                                             
                                             // 🟢 QUIRKY DISCLAIMER BADGE
                                             Positioned(
@@ -988,6 +998,10 @@ class _WorkoutSessionPageState extends State<WorkoutSessionPage> {
       decoration: BoxDecoration(
         color: AppColors.textDark,
         borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppColors.textDark, width: 2),
+        boxShadow: const [
+          BoxShadow(color: AppColors.textDark, offset: Offset(2, 2), blurRadius: 0),
+        ],
       ),
       child: Text("${_currentIndex + 1}/${_activeRoutine.length}", 
         style: GoogleFonts.inter(fontWeight: FontWeight.w900, color: Colors.white, fontSize: 14)),
@@ -1012,6 +1026,76 @@ class _WorkoutSessionPageState extends State<WorkoutSessionPage> {
         ),
         child: Icon(icon, color: iconColor, size: iconSize),
       ),
+    );
+  }
+}
+
+class ExerciseVisualizer extends StatefulWidget {
+  final List<String> visuals;
+  final BoxFit fit;
+
+  const ExerciseVisualizer({super.key, required this.visuals, this.fit = BoxFit.cover});
+
+  @override
+  State<ExerciseVisualizer> createState() => _ExerciseVisualizerState();
+}
+
+class _ExerciseVisualizerState extends State<ExerciseVisualizer> {
+  int _index = 0;
+  Timer? _timer;
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.visuals.length > 1) {
+      _timer = Timer.periodic(const Duration(milliseconds: 800), (timer) {
+        if (mounted) {
+          setState(() {
+            _index = (_index + 1) % widget.visuals.length;
+          });
+        }
+      });
+    }
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (widget.visuals.isEmpty) {
+      return Container(color: Colors.grey[200]);
+    }
+    
+    return Image.network(
+      widget.visuals[_index],
+      fit: widget.fit,
+      gaplessPlayback: true,
+      errorBuilder: (ctx, err, stack) => Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(Icons.broken_image, color: Colors.grey, size: 40),
+            const SizedBox(height: 8),
+            Text("No visual", style: GoogleFonts.inter(color: Colors.grey, fontSize: 10)),
+          ],
+        ),
+      ),
+      loadingBuilder: (context, child, loadingProgress) {
+        if (loadingProgress == null) return child;
+        return Center(
+          child: CircularProgressIndicator(
+            value: loadingProgress.expectedTotalBytes != null
+                ? loadingProgress.cumulativeBytesLoaded / 
+                  loadingProgress.expectedTotalBytes!
+                : null,
+            color: AppColors.textDark,
+          ),
+        );
+      },
     );
   }
 }
