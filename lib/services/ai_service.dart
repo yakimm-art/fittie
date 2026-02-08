@@ -1,20 +1,15 @@
 import 'dart:convert';
 import 'dart:typed_data';
 import 'package:flutter/services.dart' show rootBundle;
-import 'package:google_generative_ai/google_generative_ai.dart';
-import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:cloud_functions/cloud_functions.dart';
 import 'firebase_service.dart';
 
 class AiService {
-  static String get _geminiKey => dotenv.env['GEMINI_API_KEY'] ?? '';
-
-  late final GenerativeModel _model;
-  late final GenerativeModel _chatModel;
-  late final GenerativeModel _visionModel;
+  final FirebaseFunctions _functions = FirebaseFunctions.instance;
   final FirebaseService _firebaseService = FirebaseService();
 
-  // Persistent chat session with memory
-  ChatSession? _chatSession;
+  // Chat history for stateless server-side chat sessions
+  List<Map<String, String>> _chatHistory = [];
   bool _chatInitialized = false;
 
   /// Maps common AI-generated exercise names → exact free-exercise-db names.
@@ -223,22 +218,7 @@ class AiService {
     4. HOWEVER, your "data" (Exercise Names) must be GENERIC and STANDARD.
   ''';
 
-  AiService() {
-    _model = GenerativeModel(
-      model: 'gemini-3-flash-preview',
-      apiKey: _geminiKey,
-      generationConfig: GenerationConfig(responseMimeType: 'application/json'),
-    );
-
-    _chatModel = GenerativeModel(model: 'gemini-3-flash-preview', apiKey: _geminiKey);
-
-    // Vision model for gym equipment recognition
-    _visionModel = GenerativeModel(
-      model: 'gemini-3-flash-preview',
-      apiKey: _geminiKey,
-      generationConfig: GenerationConfig(responseMimeType: 'application/json'),
-    );
-  }
+  AiService();
 
   // Cache for the loaded exercise database
   List<dynamic> _exerciseDb = [];
@@ -362,10 +342,12 @@ class AiService {
     ''';
 
     try {
-      final content = [Content.text(prompt)];
-      final response = await _model.generateContent(content);
+      final result = await _functions.httpsCallable('geminiGenerate').call({
+        'prompt': prompt,
+        'responseMimeType': 'application/json',
+      });
 
-      String cleanText = response.text ?? "[]";
+      String cleanText = result.data['text'] ?? "[]";
       cleanText = cleanText
           .replaceAll('```json', '')
           .replaceAll('```', '')
@@ -666,12 +648,12 @@ IMPORTANT MEMORY RULES:
 - Be specific: "Last Tuesday you did 8 intensity squats, let's try 9 today!" 
 ''';
 
-    // Build conversation history from previous messages
-    List<Content> history = [];
+    // Build chat history for Cloud Function (stateless — send full history each time)
+    _chatHistory = [];
     
-    // Add system context as first message
-    history.add(Content.text(systemPrompt));
-    history.add(Content.model([TextPart("I understand! I'm Fittie, your fitness bear coach. I have your complete workout history loaded and I'm ready to give you personalized advice based on your progress! 🐻")]));
+    // Add system context as first exchange
+    _chatHistory.add({'role': 'user', 'text': systemPrompt});
+    _chatHistory.add({'role': 'model', 'text': "I understand! I'm Fittie, your fitness bear coach. I have your complete workout history loaded and I'm ready to give you personalized advice based on your progress! 🐻"});
 
     // Replay previous conversation messages (up to last 40 for context window)
     final recentMessages = previousMessages.length > 40 
@@ -679,20 +661,18 @@ IMPORTANT MEMORY RULES:
         : previousMessages;
     
     for (var msg in recentMessages) {
-      if (msg['role'] == 'user') {
-        history.add(Content.text(msg['text'] ?? ''));
-      } else {
-        history.add(Content.model([TextPart(msg['text'] ?? '')]));
-      }
+      _chatHistory.add({
+        'role': msg['role'] == 'user' ? 'user' : 'model',
+        'text': msg['text'] ?? '',
+      });
     }
 
-    _chatSession = _chatModel.startChat(history: history);
     _chatInitialized = true;
   }
 
   /// Reset the chat session (called when user clears chat)
   void resetChatSession() {
-    _chatSession = null;
+    _chatHistory = [];
     _chatInitialized = false;
   }
 
@@ -701,17 +681,28 @@ IMPORTANT MEMORY RULES:
       // Initialize session with full context if not already done
       await _initializeChatSession(previousMessages);
 
-      // Send message through the persistent chat session
-      final response = await _chatSession!.sendMessage(Content.text(userMessage));
-      return response.text ?? "Let's workout! 🐻";
+      // Send message through Cloud Function with full history
+      final result = await _functions.httpsCallable('geminiChat').call({
+        'message': userMessage,
+        'history': _chatHistory,
+      });
+      
+      final responseText = result.data['text'] ?? "Let's workout! 🐻";
+      
+      // Update local history for next call
+      _chatHistory.add({'role': 'user', 'text': userMessage});
+      _chatHistory.add({'role': 'model', 'text': responseText});
+      
+      return responseText;
     } catch (e) {
       print("Chat error: $e");
       // Fallback to stateless call if session fails
       try {
         final prompt = '''$_personaPrompt \nUSER: "$userMessage"\nREPLY (Short):''';
-        final content = [Content.text(prompt)];
-        final response = await _chatModel.generateContent(content);
-        return response.text ?? "Let's workout! 🐻";
+        final result = await _functions.httpsCallable('geminiGenerate').call({
+          'prompt': prompt,
+        });
+        return result.data['text'] ?? "Let's workout! 🐻";
       } catch (e2) {
         return "I'm having trouble connecting! Keep moving! 🐻";
       }
@@ -757,15 +748,16 @@ RETURN JSON ONLY:
 ''';
 
     try {
-      final content = [
-        Content.multi([
-          TextPart(prompt),
-          DataPart('image/jpeg', imageBytes),
-        ]),
-      ];
+      final imageBase64 = base64Encode(imageBytes);
+      
+      final result = await _functions.httpsCallable('geminiVision').call({
+        'prompt': prompt,
+        'imageBase64': imageBase64,
+        'mimeType': 'image/jpeg',
+        'responseMimeType': 'application/json',
+      });
 
-      final response = await _visionModel.generateContent(content);
-      String cleanText = response.text ?? "{}";
+      String cleanText = result.data['text'] ?? "{}";
       cleanText = cleanText.replaceAll('```json', '').replaceAll('```', '').trim();
       return jsonDecode(cleanText);
     } catch (e) {

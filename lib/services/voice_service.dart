@@ -1,15 +1,13 @@
 import 'dart:convert';
 import 'dart:typed_data';
 import 'package:flutter/foundation.dart' show kIsWeb;
-import 'package:http/http.dart' as http;
+import 'package:cloud_functions/cloud_functions.dart';
 import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter_tts/flutter_tts.dart';
-import 'package:flutter_dotenv/flutter_dotenv.dart';
 import '../providers/app_state.dart';
 
 class VoiceService {
-  static String get _apiKey => dotenv.env['ELEVENLABS_API_KEY'] ?? '';
-  static const String _baseUrl = "https://api.elevenlabs.io/v1/text-to-speech";
+  final FirebaseFunctions _functions = FirebaseFunctions.instance;
 
   final AudioPlayer _player = AudioPlayer();
   final FlutterTts _tts = FlutterTts();
@@ -18,10 +16,8 @@ class VoiceService {
   // Memory Cache to save money
   final Map<String, Uint8List> _audioCache = {};
 
-  // Track if ElevenLabs is usable (set to false on 402/auth errors)
+  // Track if ElevenLabs is usable (set to false on errors)
   bool _elevenLabsAvailable = true;
-
-  static const String _mascotVoiceId = "SOYHLrjzK2X1ezoPC6cr";
 
   /// Initialize the browser/native TTS fallback
   Future<void> _initTts() async {
@@ -43,8 +39,8 @@ class VoiceService {
   Future<void> speak(String text, FittieMode mode) async {
     print("🐻 Bear wants to say: $text");
 
-    // --- Try ElevenLabs first (premium voice) ---
-    if (_elevenLabsAvailable && _apiKey.isNotEmpty) {
+    // --- Try ElevenLabs via Cloud Function first (premium voice) ---
+    if (_elevenLabsAvailable) {
       final bool played = await _tryElevenLabs(text, mode);
       if (played) return;
     }
@@ -53,7 +49,7 @@ class VoiceService {
     await _speakWithTts(text, mode);
   }
 
-  /// Attempt ElevenLabs TTS. Returns true if audio played successfully.
+  /// Attempt ElevenLabs TTS via Cloud Function. Returns true if audio played successfully.
   Future<bool> _tryElevenLabs(String text, FittieMode mode) async {
     try {
       final String cacheKey = "${text}_${mode.name}";
@@ -81,43 +77,27 @@ class VoiceService {
           break;
       }
 
-      // 3. CALL API
-      final url = Uri.parse("$_baseUrl/$_mascotVoiceId");
-      final response = await http.post(
-        url,
-        headers: {
-          "xi-api-key": _apiKey,
-          "Content-Type": "application/json",
-          "accept": "audio/mpeg",
-        },
-        body: jsonEncode({
-          "text": text,
-          "model_id": "eleven_turbo_v2_5",
-          "voice_settings": {
-            "stability": stability,
-            "similarity_boost": similarity,
-            "style": 0.5,
-          },
-        }),
-      );
+      // 3. CALL CLOUD FUNCTION (API key stays server-side)
+      final result = await _functions.httpsCallable('elevenLabsTts').call({
+        'text': text,
+        'stability': stability,
+        'similarityBoost': similarity,
+        'style': 0.5,
+      });
 
-      if (response.statusCode == 200) {
-        print("✅ ElevenLabs audio: ${response.bodyBytes.length} bytes");
-        _audioCache[cacheKey] = response.bodyBytes;
-        await _playAudio(response.bodyBytes);
+      final String? audioBase64 = result.data['audioBase64'];
+      if (audioBase64 != null && audioBase64.isNotEmpty) {
+        final Uint8List audioBytes = base64Decode(audioBase64);
+        print("✅ ElevenLabs audio via Cloud Function: ${audioBytes.length} bytes");
+        _audioCache[cacheKey] = audioBytes;
+        await _playAudio(audioBytes);
         return true;
       }
 
-      // 401 / 402 → subscription issue, don't retry on every call
-      if (response.statusCode == 401 || response.statusCode == 402) {
-        print("⚠️ ElevenLabs ${response.statusCode} — switching to browser TTS");
-        _elevenLabsAvailable = false;
-      } else {
-        print("❌ ElevenLabs ${response.statusCode}: ${response.body}");
-      }
       return false;
     } catch (e) {
-      print("❌ ElevenLabs error: $e — falling back to browser TTS");
+      print("❌ ElevenLabs Cloud Function error: $e — falling back to browser TTS");
+      _elevenLabsAvailable = false;
       return false;
     }
   }

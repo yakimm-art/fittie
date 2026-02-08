@@ -1,6 +1,5 @@
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
-import 'package:flutter_dotenv/flutter_dotenv.dart';
 
 class DefaultFirebaseOptions {
   static FirebaseOptions get currentPlatform {
@@ -10,12 +9,12 @@ class DefaultFirebaseOptions {
     return web;
   }
 
-  static FirebaseOptions get web => FirebaseOptions(
-    apiKey: dotenv.env['FIREBASE_API_KEY'] ?? '',
-    authDomain: dotenv.env['FIREBASE_AUTH_DOMAIN'] ?? '',
-    projectId: dotenv.env['FIREBASE_PROJECT_ID'] ?? '',
-    storageBucket: dotenv.env['FIREBASE_STORAGE_BUCKET'] ?? '',
-    messagingSenderId: dotenv.env['FIREBASE_MESSAGING_SENDER_ID'] ?? '',
-    appId: dotenv.env['FIREBASE_APP_ID'] ?? '',
+  static const FirebaseOptions web = FirebaseOptions(
+    apiKey: 'REDACTED_FIREBASE_API_KEY',
+    authDomain: 'f44oou9czhl8p9li59he09z2h5afp1.firebaseapp.com',
+    projectId: 'f44oou9czhl8p9li59he09z2h5afp1',
+    storageBucket: 'f44oou9czhl8p9li59he09z2h5afp1.firebasestorage.app',
+    messagingSenderId: '437170438175',
+    appId: '1:437170438175:web:d138efdaa2f9c5c0da152a',
   );
 }
