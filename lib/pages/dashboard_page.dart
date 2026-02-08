@@ -452,6 +452,12 @@ class _HomePageState extends State<HomePage> {
   bool _isQuickLoading = false;
   double _localEnergyLevel = 50.0;
 
+  // Accessibility preferences
+  bool _useSpoonieScale = false;
+  bool _preferVoiceFirst = false;
+  String _mobilityStatus = 'Full Mobility';
+  String _conditions = 'None';
+
   List<int> _loggedWeekdays = <int>[];
   double _todayCalories = 0;
   List<double> _weeklyCalories = [];
@@ -679,6 +685,15 @@ class _HomePageState extends State<HomePage> {
         final data = userDoc.data()!;
         setState(() => _userName = data['name'] ?? "Friend");
 
+        // Load accessibility preferences
+        final accessibility = data['accessibility'] as Map<String, dynamic>? ?? {};
+        setState(() {
+          _useSpoonieScale = accessibility['use_spoonie_scale'] == true;
+          _preferVoiceFirst = accessibility['prefer_voice_first'] == true;
+          _mobilityStatus = accessibility['mobility_status'] ?? 'Full Mobility';
+          _conditions = accessibility['conditions'] ?? 'None';
+        });
+
         final todayStr = DateFormat('yyyy-M-d').format(DateTime.now());
         final logDoc = await FirebaseFirestore.instance
             .collection('users')
@@ -735,6 +750,7 @@ class _HomePageState extends State<HomePage> {
         if (doc.exists) {
           final data = doc.data()!;
           final agentData = data['agentContext'] as Map<String, dynamic>? ?? {};
+          final accessibility = data['accessibility'] as Map<String, dynamic>? ?? {};
           userContext = {
             'equipment': agentData['equipment'] ?? "None",
             'injuries': agentData['injuries'] ?? "None",
@@ -742,6 +758,10 @@ class _HomePageState extends State<HomePage> {
             'stress_baseline': agentData['stress_baseline'] ?? 50,
             'activity_level': agentData['activity_level'] ?? "Sedentary",
             'user_notes': agentData['user_notes'] ?? "None",
+            'mobility_status': accessibility['mobility_status'] ?? 'Full Mobility',
+            'conditions': accessibility['conditions'] ?? 'None',
+            'use_spoonie_scale': accessibility['use_spoonie_scale'] == true,
+            'prefer_voice_first': accessibility['prefer_voice_first'] == true,
           };
         }
       }
@@ -932,7 +952,32 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
+  // Spoonie scale helpers
+  String _getSpoonLabel(int energy) {
+    if (energy >= 80) return "5 SPOONS";
+    if (energy >= 60) return "4 SPOONS";
+    if (energy >= 40) return "3 SPOONS";
+    if (energy >= 20) return "2 SPOONS";
+    return "1 SPOON";
+  }
+
+  String _getSpoonEmoji(int energy) {
+    if (energy >= 80) return "\u{1F944}\u{1F944}\u{1F944}\u{1F944}\u{1F944}";
+    if (energy >= 60) return "\u{1F944}\u{1F944}\u{1F944}\u{1F944}";
+    if (energy >= 40) return "\u{1F944}\u{1F944}\u{1F944}";
+    if (energy >= 20) return "\u{1F944}\u{1F944}";
+    return "\u{1F944}";
+  }
+
+  String _getSpoonMode(int energy) {
+    if (energy >= 60) return "ADAPTIVE STRENGTH";
+    if (energy >= 30) return "GENTLE MOVEMENT";
+    return "RESTORATIVE REST";
+  }
+
   Widget _buildEnergyDisplay(AppState state) {
+    final bool isSpoonie = _useSpoonieScale;
+
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
@@ -943,69 +988,145 @@ class _HomePageState extends State<HomePage> {
           BoxShadow(color: AppColors.blackAccent, offset: const Offset(4, 4)),
         ],
       ),
-      child: Row(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Container(
-            padding: const EdgeInsets.all(14),
-            decoration: BoxDecoration(
-              color: AppColors.primaryTeal.withOpacity(0.15),
-              borderRadius: BorderRadius.circular(14),
-            ),
-            child: const Icon(Icons.bolt_rounded,
-                color: AppColors.primaryTeal, size: 28),
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: isSpoonie
+                      ? const Color(0xFF3B82F6).withOpacity(0.15)
+                      : AppColors.primaryTeal.withOpacity(0.15),
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                child: Icon(
+                  isSpoonie ? Icons.accessibility_new_rounded : Icons.bolt_rounded,
+                  color: isSpoonie ? const Color(0xFF3B82F6) : AppColors.primaryTeal,
+                  size: 28,
+                ),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                        isSpoonie
+                            ? _getSpoonLabel(state.energyLevel)
+                            : "${state.energyLevel}% ENERGY",
+                        style: GoogleFonts.inter(
+                            fontWeight: FontWeight.w900,
+                            fontSize: 20,
+                            color: AppColors.textDark,
+                            letterSpacing: -0.5)),
+                    const SizedBox(height: 4),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 8, vertical: 3),
+                      decoration: BoxDecoration(
+                        color: isSpoonie
+                            ? const Color(0xFF3B82F6).withOpacity(0.1)
+                            : AppColors.primaryTeal.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(6),
+                        border: Border.all(
+                            color: isSpoonie
+                                ? const Color(0xFF3B82F6)
+                                : AppColors.primaryTeal,
+                            width: 1.5),
+                      ),
+                      child: Text(
+                          isSpoonie
+                              ? _getSpoonMode(state.energyLevel)
+                              : "MODE: ${state.mode.name.toUpperCase()}",
+                          style: GoogleFonts.inter(
+                              fontSize: 10,
+                              color: isSpoonie
+                                  ? const Color(0xFF3B82F6)
+                                  : AppColors.primaryTeal,
+                              fontWeight: FontWeight.w900,
+                              letterSpacing: 0.5)),
+                    ),
+                  ],
+                ),
+              ),
+              SizedBox(
+                width: 48,
+                height: 48,
+                child: Stack(
+                  alignment: Alignment.center,
+                  children: [
+                    CircularProgressIndicator(
+                      value: state.energyLevel / 100,
+                      strokeWidth: 4,
+                      backgroundColor: Colors.grey.shade200,
+                      valueColor: AlwaysStoppedAnimation(
+                          isSpoonie ? const Color(0xFF3B82F6) : AppColors.primaryTeal),
+                    ),
+                    Text(
+                        isSpoonie
+                            ? _getSpoonEmoji(state.energyLevel).substring(0, 2)
+                            : "${state.energyLevel}",
+                        style: GoogleFonts.inter(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w900,
+                            color: AppColors.textDark)),
+                  ],
+                ),
+              ),
+            ],
           ),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text("${state.energyLevel}% ENERGY",
-                    style: GoogleFonts.inter(
-                        fontWeight: FontWeight.w900,
-                        fontSize: 20,
-                        color: AppColors.textDark,
-                        letterSpacing: -0.5)),
-                const SizedBox(height: 4),
-                Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                  decoration: BoxDecoration(
-                    color: AppColors.primaryTeal.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(6),
-                    border:
-                        Border.all(color: AppColors.primaryTeal, width: 1.5),
-                  ),
-                  child: Text("MODE: ${state.mode.name.toUpperCase()}",
+          if (isSpoonie) ...[
+            const SizedBox(height: 12),
+            Text(_getSpoonEmoji(state.energyLevel),
+                style: const TextStyle(fontSize: 18, letterSpacing: 4)),
+            const SizedBox(height: 6),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+              decoration: BoxDecoration(
+                color: const Color(0xFF3B82F6).withOpacity(0.06),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(
+                    color: const Color(0xFF3B82F6).withOpacity(0.3),
+                    width: 1),
+              ),
+              child: Text(
+                  "Spoon Theory: Your body has limited energy. Fittie respects your pace.",
+                  style: GoogleFonts.inter(
+                      fontSize: 10,
+                      color: AppColors.textSoft,
+                      fontWeight: FontWeight.w600,
+                      fontStyle: FontStyle.italic)),
+            ),
+          ],
+          // Show mobility badge if not full mobility
+          if (_mobilityStatus != 'Full Mobility') ...[
+            const SizedBox(height: 8),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+              decoration: BoxDecoration(
+                color: const Color(0xFF8B5CF6).withOpacity(0.1),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(
+                    color: const Color(0xFF8B5CF6), width: 1.5),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(Icons.accessible_rounded,
+                      size: 14, color: Color(0xFF8B5CF6)),
+                  const SizedBox(width: 6),
+                  Text(_mobilityStatus.toUpperCase(),
                       style: GoogleFonts.inter(
                           fontSize: 10,
-                          color: AppColors.primaryTeal,
+                          color: const Color(0xFF8B5CF6),
                           fontWeight: FontWeight.w900,
                           letterSpacing: 0.5)),
-                ),
-              ],
+                ],
+              ),
             ),
-          ),
-          SizedBox(
-            width: 48,
-            height: 48,
-            child: Stack(
-              alignment: Alignment.center,
-              children: [
-                CircularProgressIndicator(
-                  value: state.energyLevel / 100,
-                  strokeWidth: 4,
-                  backgroundColor: Colors.grey.shade200,
-                  valueColor:
-                      const AlwaysStoppedAnimation(AppColors.primaryTeal),
-                ),
-                Text("${state.energyLevel}",
-                    style: GoogleFonts.inter(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w900,
-                        color: AppColors.textDark)),
-              ],
-            ),
-          ),
+          ],
         ],
       ),
     );
@@ -1522,11 +1643,16 @@ class _WorkoutsPageState extends State<WorkoutsPage> {
         if (doc.exists) {
           final data = doc.data()!;
           final agentData = data['agentContext'] as Map<String, dynamic>? ?? {};
+          final accessibility = data['accessibility'] as Map<String, dynamic>? ?? {};
           userContext = {
             'equipment': agentData['equipment'] ?? "None",
             'injuries': agentData['injuries'] ?? "None",
             'goals': agentData['goals'] ?? "General Fitness",
             'extraNotes': data['extraNotes'] ?? "None",
+            'mobility_status': accessibility['mobility_status'] ?? 'Full Mobility',
+            'conditions': accessibility['conditions'] ?? 'None',
+            'use_spoonie_scale': accessibility['use_spoonie_scale'] == true,
+            'prefer_voice_first': accessibility['prefer_voice_first'] == true,
           };
         }
       }
@@ -1679,12 +1805,26 @@ class _WorkoutsPageState extends State<WorkoutsPage> {
         if (state.energyLevel > 70) themeColor = AppColors.powerRed;
         if (state.energyLevel < 30) themeColor = AppColors.zenGreen;
 
+        // Load accessibility prefs from Firestore
+        Map<String, dynamic> accessibility = {};
+        final user = _firebaseService.currentUser;
+        if (user != null) {
+          final doc = await FirebaseFirestore.instance.collection('users').doc(user.uid).get();
+          if (doc.exists) {
+            accessibility = doc.data()?['accessibility'] as Map<String, dynamic>? ?? {};
+          }
+        }
+
         final userContext = {
           'equipment': equipment.join(', '),
           'injuries': 'None',
           'goals': 'General Fitness',
           'scannedGym': true,
           'gymSummary': summary,
+          'mobility_status': accessibility['mobility_status'] ?? 'Full Mobility',
+          'conditions': accessibility['conditions'] ?? 'None',
+          'use_spoonie_scale': accessibility['use_spoonie_scale'] == true,
+          'prefer_voice_first': accessibility['prefer_voice_first'] == true,
         };
 
         Navigator.push(

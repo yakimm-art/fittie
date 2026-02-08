@@ -27,11 +27,12 @@ const _stepColors = [
   AppColors.primaryTeal,
   Color(0xFF805AD5), // purple
   Color(0xFFE5793A), // orange
+  Color(0xFF3B82F6), // blue (accessibility)
   Color(0xFFECC94B), // yellow
   Color(0xFFED64A6), // pink
 ];
 
-const _stepIcons = ["01", "02", "03", "04", "05"];
+const _stepIcons = ["01", "02", "03", "04", "05", "06"];
 
 class SignUpPage extends StatefulWidget {
   const SignUpPage({super.key});
@@ -56,6 +57,7 @@ class _SignUpPageState extends State<SignUpPage> with TickerProviderStateMixin {
   final _step1Key = GlobalKey<FormState>();
   final _step2Key = GlobalKey<FormState>();
   final _step3Key = GlobalKey<FormState>();
+  final _step3bKey = GlobalKey<FormState>();
   final _step4Key = GlobalKey<FormState>();
   final _step5Key = GlobalKey<FormState>();
 
@@ -87,6 +89,34 @@ class _SignUpPageState extends State<SignUpPage> with TickerProviderStateMixin {
   final Set<String> _selectedEquipment = {};
   final Set<String> _selectedInjuries = {};
   final Set<String> _selectedGoals = {};
+
+  // --- ACCESSIBILITY / INCLUSIVITY ---
+  String _mobilityStatus = 'Full Mobility';
+  bool _useSpoonieScale = false;
+  bool _preferVoiceFirst = false;
+  final Set<String> _selectedConditions = {};
+
+  final List<String> _mobilityOptions = [
+    'Full Mobility',
+    'Wheelchair User',
+    'Limited Lower Body',
+    'Limited Upper Body',
+    'Seated Only',
+    'Crutches/Walker',
+  ];
+  final List<String> _conditionOptions = [
+    'None',
+    'Fibromyalgia',
+    'Multiple Sclerosis',
+    'Chronic Fatigue Syndrome',
+    'Arthritis',
+    'POTS / Dysautonomia',
+    'Cerebral Palsy',
+    'Spinal Cord Injury',
+    'Amputation',
+    'Visual Impairment',
+    'Hearing Impairment',
+  ];
 
   final List<String> _equipmentOptions = [
     'None (Bodyweight)',
@@ -129,6 +159,10 @@ class _SignUpPageState extends State<SignUpPage> with TickerProviderStateMixin {
       "audio": "signup_step2.mp3"
     },
     {
+      "text": "Tell me about your body so I can make workouts truly yours. All abilities welcome!",
+      "audio": "signup_step3.mp3"
+    },
+    {
       "text": "Almost there! Tap your gear and goals so I can build your plan.",
       "audio": "signup_step3.mp3"
     },
@@ -138,7 +172,7 @@ class _SignUpPageState extends State<SignUpPage> with TickerProviderStateMixin {
     }
   ];
 
-  Color get _accent => _stepColors[_currentStep.clamp(0, 4)];
+  Color get _accent => _stepColors[_currentStep.clamp(0, 5)];
 
   @override
   void initState() {
@@ -213,8 +247,9 @@ class _SignUpPageState extends State<SignUpPage> with TickerProviderStateMixin {
     }
     if (_currentStep == 1 && !_step2Key.currentState!.validate()) return;
     if (_currentStep == 2 && !_step3Key.currentState!.validate()) return;
-    if (_currentStep == 3 && !_step4Key.currentState!.validate()) return;
-    if (_currentStep == 3 && _selectedGoals.isEmpty) {
+    if (_currentStep == 3 && !_step3bKey.currentState!.validate()) return;
+    if (_currentStep == 4 && !_step4Key.currentState!.validate()) return;
+    if (_currentStep == 4 && _selectedGoals.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
           content: Text("Please select at least one goal!"),
           backgroundColor: AppColors.textDark));
@@ -263,6 +298,10 @@ class _SignUpPageState extends State<SignUpPage> with TickerProviderStateMixin {
           injuries: _selectedInjuries.join(', '),
           specificGoals: _selectedGoals.join(', '),
           extraNotes: _extraNotesCtrl.text.trim(),
+          mobilityStatus: _mobilityStatus,
+          conditions: _selectedConditions.join(', '),
+          useSpoonieScale: _useSpoonieScale,
+          preferVoiceFirst: _preferVoiceFirst,
         );
         if (mounted) {
           Navigator.pushAndRemoveUntil(
@@ -323,7 +362,7 @@ class _SignUpPageState extends State<SignUpPage> with TickerProviderStateMixin {
                                 const SizedBox(width: 12),
                                 Expanded(
                                   child: _AnimatedProgressBar(
-                                      step: _currentStep, total: 5),
+                                      step: _currentStep, total: 6),
                                 ),
                               ],
                             ),
@@ -417,6 +456,8 @@ class _SignUpPageState extends State<SignUpPage> with TickerProviderStateMixin {
                                     _StepTransition(
                                         child: _buildStep3Lifestyle()),
                                     _StepTransition(
+                                        child: _buildStep3bAccessibility()),
+                                    _StepTransition(
                                         child: _buildStep4AgentContext()),
                                     _StepTransition(
                                         child: _buildStep5OpenEnded()),
@@ -427,7 +468,7 @@ class _SignUpPageState extends State<SignUpPage> with TickerProviderStateMixin {
                                 padding:
                                     const EdgeInsets.fromLTRB(24, 0, 24, 20),
                                 child: _ContinueButton(
-                                  label: _currentStep == 4
+                                  label: _currentStep == 5
                                       ? (_isLoading
                                           ? "ACTIVATING..."
                                           : "ACTIVATE AGENT")
@@ -435,10 +476,10 @@ class _SignUpPageState extends State<SignUpPage> with TickerProviderStateMixin {
                                   accent: _accent,
                                   isLoading: _isLoading,
                                   step: _currentStep,
-                                  total: 5,
+                                  total: 6,
                                   onTap: _isLoading
                                       ? null
-                                      : (_currentStep == 4
+                                      : (_currentStep == 5
                                           ? _handleFinalSubmit
                                           : _nextStep),
                                 ),
@@ -658,6 +699,188 @@ class _SignUpPageState extends State<SignUpPage> with TickerProviderStateMixin {
                   onTap: () => setState(() => _activityLevel = level),
                 );
               }).toList(),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildStep3bAccessibility() {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+      child: Form(
+        key: _step3bKey,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _StepHeader(
+                title: "Accessibility",
+                subtitle: "ALL ABILITIES WELCOME",
+                accent: _stepColors[3]),
+            const SizedBox(height: 8),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: const Color(0xFF3B82F6).withOpacity(0.08),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: const Color(0xFF3B82F6), width: 1.5),
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.accessibility_new_rounded,
+                      size: 20, color: Color(0xFF3B82F6)),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                        "Fittie adapts to YOU. This info helps your AI coach create safe, effective workouts for your body.",
+                        style: GoogleFonts.inter(
+                            fontSize: 11,
+                            color: AppColors.textDark,
+                            fontWeight: FontWeight.w600,
+                            height: 1.4)),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 18),
+            _SectionLabel("Mobility Status", _stepColors[3]),
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: _mobilityOptions.map((option) {
+                final isSelected = _mobilityStatus == option;
+                return _SelectableChip(
+                  label: option,
+                  isSelected: isSelected,
+                  accent: _stepColors[3],
+                  onTap: () => setState(() => _mobilityStatus = option),
+                );
+              }).toList(),
+            ),
+            const SizedBox(height: 18),
+            _SectionLabel("Conditions (if any)", _stepColors[3]),
+            const SizedBox(height: 8),
+            _buildMultiSelectTags(
+                _conditionOptions, _selectedConditions, _stepColors[3]),
+            const SizedBox(height: 18),
+
+            // Spoonie scale toggle
+            GestureDetector(
+              onTap: () => setState(() => _useSpoonieScale = !_useSpoonieScale),
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 200),
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: _useSpoonieScale ? const Color(0xFF3B82F6).withOpacity(0.1) : Colors.white,
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(
+                      color: _useSpoonieScale ? const Color(0xFF3B82F6) : AppColors.borderBlack,
+                      width: 2),
+                  boxShadow: [
+                    BoxShadow(
+                        color: _useSpoonieScale ? const Color(0xFF3B82F6).withOpacity(0.3) : AppColors.borderBlack,
+                        offset: const Offset(2, 2)),
+                  ],
+                ),
+                child: Row(
+                  children: [
+                    AnimatedContainer(
+                      duration: const Duration(milliseconds: 200),
+                      width: 22,
+                      height: 22,
+                      decoration: BoxDecoration(
+                        color: _useSpoonieScale ? const Color(0xFF3B82F6) : Colors.white,
+                        borderRadius: BorderRadius.circular(6),
+                        border: Border.all(color: AppColors.borderBlack, width: 2),
+                      ),
+                      child: _useSpoonieScale
+                          ? const Icon(Icons.check_rounded, size: 14, color: Colors.white)
+                          : null,
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text("Use Spoon Scale \u{1F944}",
+                              style: GoogleFonts.inter(
+                                  fontWeight: FontWeight.w800,
+                                  fontSize: 13,
+                                  color: AppColors.textDark)),
+                          const SizedBox(height: 2),
+                          Text(
+                              "Replace energy % with the Spoon Theory scale for chronic conditions",
+                              style: GoogleFonts.inter(
+                                  fontSize: 11,
+                                  color: AppColors.textSoft,
+                                  fontWeight: FontWeight.w500)),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 12),
+
+            // Voice-first toggle
+            GestureDetector(
+              onTap: () => setState(() => _preferVoiceFirst = !_preferVoiceFirst),
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 200),
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: _preferVoiceFirst ? const Color(0xFF3B82F6).withOpacity(0.1) : Colors.white,
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(
+                      color: _preferVoiceFirst ? const Color(0xFF3B82F6) : AppColors.borderBlack,
+                      width: 2),
+                  boxShadow: [
+                    BoxShadow(
+                        color: _preferVoiceFirst ? const Color(0xFF3B82F6).withOpacity(0.3) : AppColors.borderBlack,
+                        offset: const Offset(2, 2)),
+                  ],
+                ),
+                child: Row(
+                  children: [
+                    AnimatedContainer(
+                      duration: const Duration(milliseconds: 200),
+                      width: 22,
+                      height: 22,
+                      decoration: BoxDecoration(
+                        color: _preferVoiceFirst ? const Color(0xFF3B82F6) : Colors.white,
+                        borderRadius: BorderRadius.circular(6),
+                        border: Border.all(color: AppColors.borderBlack, width: 2),
+                      ),
+                      child: _preferVoiceFirst
+                          ? const Icon(Icons.check_rounded, size: 14, color: Colors.white)
+                          : null,
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text("Voice-First Mode \u{1F3A4}",
+                              style: GoogleFonts.inter(
+                                  fontWeight: FontWeight.w800,
+                                  fontSize: 13,
+                                  color: AppColors.textDark)),
+                          const SizedBox(height: 2),
+                          Text(
+                              "Screen-free coaching with voice commands (Pause, Next, Help)",
+                              style: GoogleFonts.inter(
+                                  fontSize: 11,
+                                  color: AppColors.textSoft,
+                                  fontWeight: FontWeight.w500)),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
             ),
           ],
         ),

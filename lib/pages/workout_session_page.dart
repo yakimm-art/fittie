@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart'; 
+import 'package:speech_to_text/speech_to_text.dart' as stt;
 import '../widgets/kawaii_bear.dart';
 import '../services/firebase_service.dart';
 import '../services/voice_service.dart'; 
@@ -69,12 +70,116 @@ class _WorkoutSessionPageState extends State<WorkoutSessionPage> {
     "FOLLOW ALONG"
   ];
 
+  // Voice-First state
+  final stt.SpeechToText _speech = stt.SpeechToText();
+  bool _isListening = false;
+  bool _voiceFirstEnabled = false;
+  bool _speechAvailable = false;
+  String _lastVoiceCommand = "";
+  bool _isProcessingVoice = false;
+
   @override
   void initState() {
     super.initState();
     // If routine is already provided (backward compatibility), use it
     if (widget.routine != null && widget.routine!.isNotEmpty) {
       _activeRoutine = List.from(widget.routine!);
+    }
+    // Check if voice-first mode is enabled
+    _voiceFirstEnabled = widget.userContext?['prefer_voice_first'] == true;
+    if (_voiceFirstEnabled) {
+      _initSpeech();
+    }
+  }
+
+  Future<void> _initSpeech() async {
+    try {
+      _speechAvailable = await _speech.initialize(
+        onStatus: (status) {
+          if (status == 'notListening' && _voiceFirstEnabled && mounted && !_isProcessingVoice) {
+            // Auto-restart listening after a pause
+            Future.delayed(const Duration(milliseconds: 500), () {
+              if (mounted && _voiceFirstEnabled && !_isProcessingVoice) {
+                _startListening();
+              }
+            });
+          }
+        },
+        onError: (error) {
+          debugPrint("Speech error: $error");
+          if (mounted) setState(() => _isListening = false);
+        },
+      );
+      if (_speechAvailable && mounted) {
+        _startListening();
+      }
+    } catch (e) {
+      debugPrint("Speech init failed: $e");
+    }
+  }
+
+  void _startListening() {
+    if (!_speechAvailable || _isProcessingVoice) return;
+    _speech.listen(
+      onResult: (result) {
+        if (result.finalResult && result.recognizedWords.isNotEmpty) {
+          _handleVoiceCommand(result.recognizedWords);
+        }
+      },
+      listenFor: const Duration(seconds: 15),
+      pauseFor: const Duration(seconds: 3),
+    );
+    if (mounted) setState(() => _isListening = true);
+  }
+
+  void _stopListening() {
+    _speech.stop();
+    if (mounted) setState(() => _isListening = false);
+  }
+
+  Future<void> _handleVoiceCommand(String command) async {
+    final lc = command.toLowerCase().trim();
+    setState(() {
+      _lastVoiceCommand = command;
+      _isProcessingVoice = true;
+    });
+
+    if (lc.contains('pause') || lc.contains('stop') || lc.contains('wait')) {
+      setState(() => _isPaused = true);
+      await _voiceService.speak("Paused. Say resume when ready.", FittieMode.zen);
+    } else if (lc.contains('resume') || lc.contains('continue') || lc.contains('go') || lc.contains('start')) {
+      setState(() => _isPaused = false);
+      if (!_isPreviewPhase) _startTimer();
+      await _voiceService.speak("Let's go!", FittieMode.power);
+    } else if (lc.contains('next') || lc.contains('skip') || lc.contains('done')) {
+      await _voiceService.speak("Skipping to next exercise.", FittieMode.power);
+      _nextExercise();
+    } else if (lc.contains('help') || lc.contains('how') || lc.contains('explain') || lc.contains('what')) {
+      // Ask Gemini for a simplified description, then speak it
+      await _voiceExplainExercise();
+    } else if (lc.contains('quit') || lc.contains('end') || lc.contains('finish')) {
+      await _voiceService.speak("Ending workout.", FittieMode.zen);
+      _finishWorkout();
+    } else {
+      await _voiceService.speak("I didn't catch that. Try pause, resume, next, or help.", FittieMode.zen);
+    }
+
+    if (mounted) setState(() => _isProcessingVoice = false);
+  }
+
+  Future<void> _voiceExplainExercise() async {
+    if (_activeRoutine.isEmpty || _currentIndex >= _activeRoutine.length) return;
+    final exercise = _activeRoutine[_currentIndex];
+    final name = exercise['name'] ?? "This exercise";
+    final instruction = exercise['instruction'] ?? "";
+
+    try {
+      final explanation = await _aiService.chatWithFittie(
+        "Explain how to do '$name' in 2 simple sentences for someone who can't see the screen. Instruction: $instruction",
+      );
+      await _voiceService.speak(explanation, FittieMode.zen);
+    } catch (e) {
+      await _voiceService.speak("$name. $instruction", FittieMode.zen);
     }
   }
 
@@ -358,6 +463,7 @@ class _WorkoutSessionPageState extends State<WorkoutSessionPage> {
   void dispose() {
     _timer?.cancel();
     _previewTimer?.cancel();
+    _speech.stop();
     super.dispose();
   }
 
@@ -470,6 +576,60 @@ class _WorkoutSessionPageState extends State<WorkoutSessionPage> {
                     ),
 
                     const SizedBox(height: 12),
+
+                    // Voice command indicator
+                    if (_voiceFirstEnabled && (_isListening || _lastVoiceCommand.isNotEmpty))
+                      Center(
+                        child: ConstrainedBox(
+                          constraints: BoxConstraints(maxWidth: isWeb ? 900 : 600),
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 24),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                              decoration: BoxDecoration(
+                                color: _isListening
+                                    ? const Color(0xFF3B82F6).withOpacity(0.1)
+                                    : Colors.grey.withOpacity(0.05),
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(
+                                    color: _isListening
+                                        ? const Color(0xFF3B82F6)
+                                        : Colors.grey.shade300,
+                                    width: 1.5),
+                              ),
+                              child: Row(
+                                children: [
+                                  Icon(
+                                    _isListening ? Icons.hearing_rounded : Icons.mic_off_rounded,
+                                    size: 16,
+                                    color: _isListening ? const Color(0xFF3B82F6) : Colors.grey,
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                    child: Text(
+                                      _isProcessingVoice
+                                          ? "Processing: \"$_lastVoiceCommand\"..."
+                                          : _isListening
+                                              ? "Listening... say Pause, Next, Help, or Skip"
+                                              : "Last: \"$_lastVoiceCommand\"",
+                                      style: GoogleFonts.inter(
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.w700,
+                                        color: _isListening
+                                            ? const Color(0xFF3B82F6)
+                                            : AppColors.textDark.withOpacity(0.5),
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+
+                    if (_voiceFirstEnabled && (_isListening || _lastVoiceCommand.isNotEmpty))
+                      const SizedBox(height: 8),
 
                     // 2. EXERCISE VISUAL (fills available space)
                     Expanded(
@@ -678,6 +838,39 @@ class _WorkoutSessionPageState extends State<WorkoutSessionPage> {
                                   ),
                                 ),
                                 const SizedBox(width: 12),
+                                // Voice mic button (only when voice-first is enabled)
+                                if (_voiceFirstEnabled) ...[
+                                  GestureDetector(
+                                    onTap: () {
+                                      if (_isListening) {
+                                        _stopListening();
+                                      } else {
+                                        _startListening();
+                                      }
+                                    },
+                                    child: Container(
+                                      padding: const EdgeInsets.all(12),
+                                      decoration: BoxDecoration(
+                                        color: _isListening
+                                            ? const Color(0xFF3B82F6)
+                                            : _isProcessingVoice
+                                                ? Colors.amber
+                                                : Colors.grey.shade200,
+                                        shape: BoxShape.circle,
+                                        border: Border.all(color: AppColors.textDark, width: 2),
+                                        boxShadow: _isListening
+                                            ? [BoxShadow(color: const Color(0xFF3B82F6).withOpacity(0.4), blurRadius: 12, spreadRadius: 2)]
+                                            : const [BoxShadow(color: AppColors.textDark, offset: Offset(2, 2))],
+                                      ),
+                                      child: Icon(
+                                        _isListening ? Icons.mic_rounded : Icons.mic_off_rounded,
+                                        color: _isListening ? Colors.white : AppColors.textDark,
+                                        size: 22,
+                                      ),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 10),
+                                ],
                                 // Pause button
                                 _buildPopButton(
                                   icon: _isPaused ? Icons.play_arrow_rounded : Icons.pause_rounded,

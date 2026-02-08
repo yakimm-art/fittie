@@ -278,6 +278,11 @@ class AiService {
     final String height = userContext['height'] ?? "170cm";
     final String age = (userContext['age'] ?? 25).toString();
 
+    // Accessibility context
+    final String mobilityStatus = userContext['mobility_status'] ?? "Full Mobility";
+    final String conditions = userContext['conditions'] ?? "None";
+    final bool useSpoonieScale = userContext['use_spoonie_scale'] == true;
+
     // LONG CONTEXT: Fetch entire workout history for progression analysis
     String workoutHistory = "No prior history available.";
     try {
@@ -297,6 +302,22 @@ class AiService {
       - Injuries: $injuries
       - Equipment: $equipment
       - SPECIAL NOTES: "$notes"
+      
+      ♿ ACCESSIBILITY PROFILE:
+      - Mobility Status: $mobilityStatus
+      - Conditions: $conditions
+      - Energy Scale: ${useSpoonieScale ? "SPOON SCALE (user has chronic condition — treat energy conservatively)" : "Standard percentage"}
+      
+      ♿ ACCESSIBILITY RULES (CRITICAL — follow these strictly):
+      - If Mobility Status is "Wheelchair User" or "Seated Only": ONLY select exercises that can be performed ENTIRELY from a seated position. Focus on upper body, core stability, seated cardio (e.g. Seated Shadow Boxing, Seated Arm Circles, Chair Dips). NEVER include squats, lunges, jumping, running, or any standing exercise.
+      - If Mobility Status is "Limited Lower Body": Minimize lower body exercises. Prefer upper body and core. If including legs, only gentle seated leg movements.
+      - If Mobility Status is "Limited Upper Body": Focus on lower body, core, and seated cardio. Avoid overhead movements, push-ups, or heavy arm work.
+      - If Mobility Status is "Crutches/Walker": Only select exercises that can be done while stationary or seated. No balance-dependent exercises.
+      - If Conditions include "Fibromyalgia" or "Chronic Fatigue Syndrome" or "Multiple Sclerosis": Reduce intensity by 30%. Favor gentle movements, stretching, breathing exercises. Never push beyond moderate effort. Include longer rest cues in instructions.
+      - If Conditions include "POTS / Dysautonomia": Avoid exercises requiring sudden position changes. Prefer reclined or seated exercises. No burpees, no jumping.
+      - If Conditions include "Visual Impairment": Provide VERY detailed verbal instructions in the instruction field. Describe exact body positioning.
+      - If Conditions include "Arthritis": Favor low-impact, joint-friendly movements. No jumping, no heavy resistance.
+      - If using Spoon Scale and energy is below 30: Only generate passive stretching, gentle breathing, or restorative poses.
       
       📊 LONG-TERM WORKOUT HISTORY (Use this for intelligent progression):
       $workoutHistory

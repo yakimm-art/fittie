@@ -86,6 +86,10 @@ class FirebaseService {
     required String injuries,
     required String specificGoals,
     String? extraNotes,
+    String mobilityStatus = 'Full Mobility',
+    String conditions = 'None',
+    bool useSpoonieScale = false,
+    bool preferVoiceFirst = false,
   }) async {
     try {
       double w = double.tryParse(weight) ?? 70;
@@ -112,6 +116,12 @@ class FirebaseService {
           'stress_baseline': stressBaseline,
           'activity_level': activityLevel,
           'user_notes': extraNotes ?? "None",
+        },
+        'accessibility': {
+          'mobility_status': mobilityStatus,
+          'conditions': conditions,
+          'use_spoonie_scale': useSpoonieScale,
+          'prefer_voice_first': preferVoiceFirst,
         },
         'streak': 0,
         'role': 'user',
@@ -602,6 +612,7 @@ class FirebaseService {
 
       final data = doc.data()!;
       final agentContext = data['agentContext'] as Map<String, dynamic>? ?? {};
+      final accessibility = data['accessibility'] as Map<String, dynamic>? ?? {};
 
       return '''
 USER PROFILE:
@@ -616,6 +627,12 @@ USER PROFILE:
 - Goals: ${agentContext['goals'] ?? 'General Fitness'}
 - Activity Level: ${agentContext['activity_level'] ?? 'Sedentary'}
 - Stress Baseline: ${agentContext['stress_baseline'] ?? 50}
+
+ACCESSIBILITY PROFILE:
+- Mobility Status: ${accessibility['mobility_status'] ?? 'Full Mobility'}
+- Conditions: ${accessibility['conditions'] ?? 'None'}
+- Uses Spoonie Scale: ${accessibility['use_spoonie_scale'] == true ? 'Yes' : 'No'}
+- Prefers Voice-First: ${accessibility['prefer_voice_first'] == true ? 'Yes' : 'No'}
 ''';
     } catch (e) {
       return "";
