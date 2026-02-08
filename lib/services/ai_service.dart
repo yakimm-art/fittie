@@ -2,13 +2,11 @@ import 'dart:convert';
 import 'dart:typed_data';
 import 'package:flutter/services.dart' show rootBundle;
 import 'package:google_generative_ai/google_generative_ai.dart';
-import 'package:http/http.dart' as http;
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'firebase_service.dart';
 
 class AiService {
   static String get _geminiKey => dotenv.env['GEMINI_API_KEY'] ?? '';
-  static String get _giphyKey => dotenv.env['GIPHY_API_KEY'] ?? '';
 
   late final GenerativeModel _model;
   late final GenerativeModel _chatModel;
@@ -19,52 +17,202 @@ class AiService {
   ChatSession? _chatSession;
   bool _chatInitialized = false;
 
-  // Curated fallback library using reliable Giphy fitness GIFs
-  // These are direct links to fitness-specific GIFs from verified fitness accounts
-  static const Map<String, String> _curatedExerciseGifs = {
-    // Upper Body
-    'push up': 'https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExNDg5OTlkMDg4YWU2OGE4OGI5YjY5NjIxZjg5NzQxNjQwMGI5ZjRhZSZlcD12MV9naWZzX3NlYXJjaCZjdD1n/7YCC7lbXAoOVy/giphy.gif',
-    'push ups': 'https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExNDg5OTlkMDg4YWU2OGE4OGI5YjY5NjIxZjg5NzQxNjQwMGI5ZjRhZSZlcD12MV9naWZzX3NlYXJjaCZjdD1n/7YCC7lbXAoOVy/giphy.gif',
-    'pushup': 'https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExNDg5OTlkMDg4YWU2OGE4OGI5YjY5NjIxZjg5NzQxNjQwMGI5ZjRhZSZlcD12MV9naWZzX3NlYXJjaCZjdD1n/7YCC7lbXAoOVy/giphy.gif',
-    'pushups': 'https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExNDg5OTlkMDg4YWU2OGE4OGI5YjY5NjIxZjg5NzQxNjQwMGI5ZjRhZSZlcD12MV9naWZzX3NlYXJjaCZjdD1n/7YCC7lbXAoOVy/giphy.gif',
-    'plank': 'https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExNzAzMjY1NTMwYWZhMjVhMjJlZTZlNDdkZDNjMjNmNmZlMzdhMDRjYSZlcD12MV9naWZzX3NlYXJjaCZjdD1n/xT8qBeEqnpdMbIbtVS/giphy.gif',
-    'bicep curl': 'https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExNmU0Y2Q3ZjExMjRlZjQwNzVkMmQ1NzAzMjQ5ZTVkZTllMTVjMzVjMSZlcD12MV9naWZzX3NlYXJjaCZjdD1n/3o6ZsZKbgw4QVWEbzq/giphy.gif',
-    'tricep dip': 'https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExYTdiNmQxZDdjNjk3YjRlMGQ2YTIxN2UwMGIxZjgxOTg3ZDY2ZTQyYSZlcD12MV9naWZzX3NlYXJjaCZjdD1n/3o7btNhMBytxAM6YBa/giphy.gif',
-    'shoulder press': 'https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExY2QxMmM4ZjAxNjg4ZmNmMjE4MjExMjZhODc4NjVjMDE0YjU5NjBkNCZlcD12MV9naWZzX3NlYXJjaCZjdD1n/xUNd9IMywss6NTIghO/giphy.gif',
-    
-    // Lower Body  
-    'squat': 'https://media.giphy.com/media/1qfKN8Dt0CRdCRxz9q/giphy.gif',
-    'squats': 'https://media.giphy.com/media/1qfKN8Dt0CRdCRxz9q/giphy.gif',
-    'lunge': 'https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExNWQzNWI5ZTFjNmE1ZjM2MTI2ZDY4ZmE3NTY2NjYyNDUxMTc1ZjdiMCZlcD12MV9naWZzX3NlYXJjaCZjdD1n/1n4FT4KRQkDvK0IO4X/giphy.gif',
-    'lunges': 'https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExNWQzNWI5ZTFjNmE1ZjM2MTI2ZDY4ZmE3NTY2NjYyNDUxMTc1ZjdiMCZlcD12MV9naWZzX3NlYXJjaCZjdD1n/1n4FT4KRQkDvK0IO4X/giphy.gif',
-    'calf raise': 'https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExODEyNjZmMzg4YTQ5MjRiNmY1NmRmYjQxNjRmOGYzNjU0ZjU0NmE2NCZlcD12MV9naWZzX3NlYXJjaCZjdD1n/3oriO04qxVReM5rJEA/giphy.gif',
-    'glute bridge': 'https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExMzhjNTA4ZjQ2ZDcwMGMzMjEyZDg2OGI4Y2E0Y2JlY2UxNjg0Y2Y5ZiZlcD12MV9naWZzX3NlYXJjaCZjdD1n/xT8qBhrlNooHBYR9f2/giphy.gif',
-    'leg raise': 'https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExY2U3YjgyODI0MGRhZDg5OTI1NWI4ZGU4YmQ1ZDQ0MzE3NTdlYmMyMyZlcD12MV9naWZzX3NlYXJjaCZjdD1n/xT8qBvH1pAhtfSx52U/giphy.gif',
-    
-    // Core
-    'crunch': 'https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExYzM4OWQ2OTExMWUxMjA2YmRjMjkxYWM2OTJhMzU2MjU5YTMzMzIxYiZlcD12MV9naWZzX3NlYXJjaCZjdD1n/xT8qBit7YomT80d0M8/giphy.gif',
-    'crunches': 'https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExYzM4OWQ2OTExMWUxMjA2YmRjMjkxYWM2OTJhMzU2MjU5YTMzMzIxYiZlcD12MV9naWZzX3NlYXJjaCZjdD1n/xT8qBit7YomT80d0M8/giphy.gif',
-    'sit up': 'https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExMGEzZDE0MjI5NmYxMjhlZTgyZWQ0Y2E0NjQ1YmUyZWI3Y2Y2ZWI1YyZlcD12MV9naWZzX3NlYXJjaCZjdD1n/3o6ozh46EbuWRRYMxy/giphy.gif',
-    'sit ups': 'https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExMGEzZDE0MjI5NmYxMjhlZTgyZWQ0Y2E0NjQ1YmUyZWI3Y2Y2ZWI1YyZlcD12MV9naWZzX3NlYXJjaCZjdD1n/3o6ozh46EbuWRRYMxy/giphy.gif',
-    'mountain climber': 'https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExMDY1MTZhNGU3YjRjOTc0MTBjNDNkODU4MjkzMjBmZjQyYWRiNTg1OCZlcD12MV9naWZzX3NlYXJjaCZjdD1n/5t9IcXoBn9jvGvjbMr/giphy.gif',
-    'mountain climbers': 'https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExMDY1MTZhNGU3YjRjOTc0MTBjNDNkODU4MjkzMjBmZjQyYWRiNTg1OCZlcD12MV9naWZzX3NlYXJjaCZjdD1n/5t9IcXoBn9jvGvjbMr/giphy.gif',
-    'russian twist': 'https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExZjM5NjUwN2Q0YmRmZjM4OTU5NmE5ZTNhNmZlMjIzZjc3N2VhMjNjNyZlcD12MV9naWZzX3NlYXJjaCZjdD1n/xT8qBgvOUl9mj2fe6c/giphy.gif',
-    'bicycle crunch': 'https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExN2M5YjY0NTVjMDU1YzU2MTNhZmRkYTA3ZDgyZjVjODQ5OGYyMmRhNyZlcD12MV9naWZzX3NlYXJjaCZjdD1n/xT8qBvgKeMvMGSJNgA/giphy.gif',
-    
-    // Cardio & Full Body
-    'jumping jack': 'https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExN2RhMDJjZWM5NjI0NmE4M2RjYWQ5M2JlODQ1YTcyOWFmMTAyMDU3MSZlcD12MV9naWZzX3NlYXJjaCZjdD1n/l0MYyEsjhIXdzv9PG/giphy.gif',
-    'jumping jacks': 'https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExN2RhMDJjZWM5NjI0NmE4M2RjYWQ5M2JlODQ1YTcyOWFmMTAyMDU3MSZlcD12MV9naWZzX3NlYXJjaCZjdD1n/l0MYyEsjhIXdzv9PG/giphy.gif',
-    'burpee': 'https://media.giphy.com/media/23hPPMRgPxbNBlPQe3/giphy.gif',
-    'burpees': 'https://media.giphy.com/media/23hPPMRgPxbNBlPQe3/giphy.gif',
-    'high knees': 'https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExOTY5YjY1ZmE2YjM0YWM0YjAwMzMxZjNhMTU5MGRjNTRmNjc0ZTU4OSZlcD12MV9naWZzX3NlYXJjaCZjdD1n/3o7btNRptqBgLSKR2w/giphy.gif',
-    'jump rope': 'https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExMzUzODdhYjQ1MWMzOWI1ZjgxZmM0YjE3YjE4ZWY0YzEyNDhkMDY2MSZlcD12MV9naWZzX3NlYXJjaCZjdD1n/1n4FT4KRQkDvK0IO4X/giphy.gif',
-    'box jump': 'https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExZTcwMmU1MDZmMzJiZjgyYmI1ODA5YTViNzhmMGNiY2MxYTQwN2JmZSZlcD12MV9naWZzX3NlYXJjaCZjdD1n/l0MYw6Cu1TfY3gsWk/giphy.gif',
-    
+  /// Maps common AI-generated exercise names → exact free-exercise-db names.
+  /// This bridges the gap between what Gemini outputs and what the DB contains.
+  static const Map<String, String> _exerciseSynonyms = {
+    // Push variations
+    'push up': 'Pushups',
+    'push ups': 'Pushups',
+    'push-up': 'Pushups',
+    'push-ups': 'Pushups',
+    'pushup': 'Pushups',
+    'wide push up': 'Push-Up Wide',
+    'wide push-up': 'Push-Up Wide',
+    'wide push ups': 'Push-Up Wide',
+    'close grip push up': 'Push-Ups - Close Triceps Position',
+    'diamond push up': 'Push-Ups - Close Triceps Position',
+    'diamond push-up': 'Push-Ups - Close Triceps Position',
+    'decline push up': 'Decline Push-Up',
+    'decline push-up': 'Decline Push-Up',
+    'incline push up': 'Incline Push-Up',
+    'incline push-up': 'Incline Push-Up',
+
+    // Squat variations
+    'squat': 'Bodyweight Squat',
+    'squats': 'Bodyweight Squat',
+    'bodyweight squat': 'Bodyweight Squat',
+    'body weight squat': 'Bodyweight Squat',
+    'air squat': 'Bodyweight Squat',
+    'jump squat': 'Freehand Jump Squat',
+    'jump squats': 'Freehand Jump Squat',
+    'split squat': 'Split Squats',
+    'split squats': 'Split Squats',
+    'barbell squat': 'Barbell Squat',
+    'back squat': 'Barbell Squat',
+    'front squat': 'Front Barbell Squat',
+    'goblet squat': 'Goblet Squat',
+    'sumo squat': 'Sumo Deadlift',
+    'sit squat': 'Sit Squats',
+
+    // Lunge variations
+    'lunge': 'Bodyweight Walking Lunge',
+    'lunges': 'Bodyweight Walking Lunge',
+    'walking lunge': 'Bodyweight Walking Lunge',
+    'walking lunges': 'Bodyweight Walking Lunge',
+    'reverse lunge': 'Crossover Reverse Lunge',
+    'reverse lunges': 'Crossover Reverse Lunge',
+    'barbell lunge': 'Barbell Lunge',
+    'dumbbell lunge': 'Dumbbell Lunges',
+    'dumbbell lunges': 'Dumbbell Lunges',
+
+    // Core / Abs
+    'crunch': 'Crunches',
+    'crunches': 'Crunches',
+    'sit up': 'Sit-Up',
+    'sit ups': 'Sit-Up',
+    'sit-up': 'Sit-Up',
+    'sit-ups': 'Sit-Up',
+    'plank': 'Plank',
+    'mountain climber': 'Mountain Climbers',
+    'mountain climbers': 'Mountain Climbers',
+    'russian twist': 'Russian Twist',
+    'russian twists': 'Russian Twist',
+    'bicycle crunch': 'Cross-Body Crunch',
+    'bicycle crunches': 'Cross-Body Crunch',
+    'leg raise': 'Flat Bench Lying Leg Raise',
+    'leg raises': 'Flat Bench Lying Leg Raise',
+    'hanging leg raise': 'Hanging Leg Raise',
+    'flutter kick': 'Flutter Kicks',
+    'flutter kicks': 'Flutter Kicks',
+    'reverse crunch': 'Reverse Crunch',
+    'oblique crunch': 'Oblique Crunches - On The Floor',
+    'dead bug': 'Dead Bug',
+    'superman': 'Superman',
+
+    // Pull / Back
+    'pull up': 'Pullups',
+    'pull ups': 'Pullups',
+    'pull-up': 'Pullups',
+    'pull-ups': 'Pullups',
+    'pullup': 'Pullups',
+    'pullups': 'Pullups',
+    'chin up': 'Chin-Up',
+    'chin ups': 'Chin-Up',
+    'chin-up': 'Chin-Up',
+    'inverted row': 'Inverted Row',
+    'barbell row': 'Bent Over Barbell Row',
+    'bent over row': 'Bent Over Barbell Row',
+    'dumbbell row': 'Dumbbell Bent Over Row',
+
+    // Chest
+    'bench press': 'Barbell Bench Press - Medium Grip',
+    'barbell bench press': 'Barbell Bench Press - Medium Grip',
+    'incline bench press': 'Barbell Incline Bench Press - Medium Grip',
+    'dumbbell bench press': 'Dumbbell Bench Press',
+    'dumbbell fly': 'Dumbbell Flyes',
+    'dumbbell flye': 'Dumbbell Flyes',
+    'chest fly': 'Dumbbell Flyes',
+    'chest dip': 'Dips - Chest Version',
+    'dip': 'Dips - Triceps Version',
+    'dips': 'Dips - Triceps Version',
+    'tricep dip': 'Bench Dips',
+    'tricep dips': 'Bench Dips',
+    'bench dip': 'Bench Dips',
+    'bench dips': 'Bench Dips',
+
+    // Arms
+    'bicep curl': 'Dumbbell Bicep Curl',
+    'bicep curls': 'Dumbbell Bicep Curl',
+    'dumbbell curl': 'Dumbbell Bicep Curl',
+    'hammer curl': 'Hammer Curls',
+    'hammer curls': 'Hammer Curls',
+    'tricep extension': 'Dumbbell One-Arm Triceps Extension',
+    'tricep kickback': 'Dumbbell Kickback',
+    'skull crusher': 'EZ-Bar Skullcrusher',
+
+    // Shoulders
+    'shoulder press': 'Dumbbell Shoulder Press',
+    'overhead press': 'Standing Military Press',
+    'military press': 'Standing Military Press',
+    'lateral raise': 'Side Lateral Raise',
+    'lateral raises': 'Side Lateral Raise',
+    'front raise': 'Front Dumbbell Raise',
+    'front raises': 'Front Dumbbell Raise',
+    'arnold press': 'Arnold Dumbbell Press',
+    'shoulder shrug': 'Barbell Shrug',
+    'shrug': 'Barbell Shrug',
+    'shrugs': 'Barbell Shrug',
+
+    // Legs
+    'calf raise': 'Standing Calf Raises',
+    'calf raises': 'Standing Calf Raises',
+    'glute bridge': 'Butt Lift (Bridge)',
+    'hip bridge': 'Butt Lift (Bridge)',
+    'bridge': 'Butt Lift (Bridge)',
+    'hip thrust': 'Butt Lift (Bridge)',
+    'step up': 'Step-up with Knee Raise',
+    'step ups': 'Step-up with Knee Raise',
+    'glute kickback': 'Glute Kickback',
+    'donkey kick': 'Glute Kickback',
+    'donkey kicks': 'Glute Kickback',
+    'wall sit': 'Sit Squats',
+    'leg curl': 'Seated Leg Curl',
+    'leg extension': 'Leg Extensions',
+    'romanian deadlift': 'Romanian Deadlift With Dumbbells',
+    'rdl': 'Romanian Deadlift With Dumbbells',
+
+    // Deadlift
+    'deadlift': 'Barbell Deadlift',
+    'barbell deadlift': 'Barbell Deadlift',
+    'sumo deadlift': 'Sumo Deadlift',
+
+    // Cardio / Plyometric
+    'jumping jack': 'Star Jump',
+    'jumping jacks': 'Star Jump',
+    'burpee': 'Frog Hops',
+    'burpees': 'Frog Hops',
+    'high knees': 'Double Leg Butt Kick',
+    'high knee': 'Double Leg Butt Kick',
+    'box jump': 'Bench Jump',
+    'box jumps': 'Bench Jump',
+    'jump rope': 'Fast Skipping',
+    'skipping': 'Fast Skipping',
+    'broad jump': 'Standing Long Jump',
+    'tuck jump': 'Knee Tuck Jump',
+    'tuck jumps': 'Knee Tuck Jump',
+    'frog jump': 'Frog Hops',
+    'frog jumps': 'Frog Hops',
+    'scissor jump': 'Scissors Jump',
+    'scissor jumps': 'Scissors Jump',
+
     // Stretches
-    'stretch': 'https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExYWY2MTJhMjJhNDhmMTJlZTcxZTM4Y2E4YTE5OWNmZmY5MjhkMGQ5YSZlcD12MV9naWZzX3NlYXJjaCZjdD1n/12UlfHpF05ielO/giphy.gif',
-    'arm stretch': 'https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExYWY2MTJhMjJhNDhmMTJlZTcxZTM4Y2E4YTE5OWNmZmY5MjhkMGQ5YSZlcD12MV9naWZzX3NlYXJjaCZjdD1n/12UlfHpF05ielO/giphy.gif',
-    'leg stretch': 'https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExNmUxZjZlM2Y2MTk3ZDU4YTM2Y2M0ZDkwY2Q5MTkxMjE5ZmZkMGFjNiZlcD12MV9naWZzX3NlYXJjaCZjdD1n/xT8qBsOjMOcdeGJIU8/giphy.gif',
-    'shoulder stretch': 'https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExZmRhNjBiMjY1Y2Y2ZjY5NjM4MjY2Y2Q2MDNmYzk1YTI3NjkxMjBjYiZlcD12MV9naWZzX3NlYXJjaCZjdD1n/l46CbAuxFk2Cz0s2A/giphy.gif',
+    'hamstring stretch': 'Hamstring Stretch',
+    'quad stretch': 'All Fours Quad Stretch',
+    'hip flexor stretch': 'Kneeling Hip Flexor',
+    'shoulder stretch': 'Shoulder Stretch',
+    'chest stretch': 'Dynamic Chest Stretch',
+    'back stretch': 'Dynamic Back Stretch',
+    'calf stretch': 'Calf Stretch Hands Against Wall',
+    'groin stretch': 'Side Lying Groin Stretch',
+    'child pose': "Child's Pose",
+    "child's pose": "Child's Pose",
+    'cat stretch': 'Cat Stretch',
+    'cat cow': 'Cat Stretch',
+    'arm circles': 'Arm Circles',
+    'neck stretch': 'Side Neck Stretch',
+    'tricep stretch': 'Triceps Stretch',
+
+    // Misc
+    'inchworm': 'Inchworm',
+    'bear crawl': 'Spider Crawl',
+    'spider crawl': 'Spider Crawl',
+    'handstand push up': 'Handstand Push-Ups',
+    'pike push up': 'Handstand Push-Ups',
+    'ab roller': 'Ab Roller',
+    'plyo push up': 'Plyo Push-up',
+    'side plank': 'Side Bridge',
+    'side bridge': 'Side Bridge',
+    'kettlebell swing': 'One-Arm Kettlebell Swings',
   };
 
   static const String _personaPrompt = '''
@@ -101,16 +249,14 @@ class AiService {
     try {
       final jsonString = await rootBundle.loadString('assets/data/exercises.json');
       _exerciseDb = jsonDecode(jsonString);
+      _exerciseDb.shuffle(); // Shuffle so the AI gets varied suggestions
       
-      // Filter for bodyweight/easy exercises to guide the AI
+      // Build available exercise names for the AI prompt
       _availableExercises = _exerciseDb
-          .where((e) => e['equipment'] == 'body only' || e['equipment'] == null)
+          .where((e) => e['images'] != null && (e['images'] as List).isNotEmpty)
           .map((e) => e['name'].toString())
           .toList();
           
-      // Shuffle to vary recommendations if we only take top N
-      _availableExercises.shuffle();
-      
     } catch (e) {
       print("Error loading exercise DB: $e");
     }
@@ -164,11 +310,13 @@ class AiService {
       
       TASK: Create a $workoutCount-step workout routine with exactly $workoutCount exercises.
       
-      ⚠️ EXERCISE NAME RULES:
-      - YOU MUST CHOOSE from the following AVAILABLE EXERCISES list to ensure we have visual demonstrations:
-      [${_availableExercises.take(60).join(', ')}]
-      - If you need others, use STANDARD names like: Push Up, Squat, Plank, Jumping Jack, Burpee.
-      - Keep names EXACTLY as they appear in the list if possible.
+      ⚠️ CRITICAL — EXERCISE NAME RULES:
+      - You MUST pick exercise names from this database. These are the ONLY names that have visual demonstrations:
+      [${_availableExercises.take(100).join(', ')}]
+      - Use the EXACT spelling from the list above (e.g. "Pushups" not "Push Up", "Bodyweight Squat" not "Squat").
+      - If user has specific equipment, pick exercises from the list that match.
+      - Do NOT invent exercise names. Only use names from the list above.
+      - Prioritize exercises that are common and well-known.
       
       ⚠️ CALORIE COMPUTATION RULES:
       - Use the user's weight ($weight) and the MET (Metabolic Equivalent of Task) values for the specific exercises to calculate burned calories.
@@ -204,7 +352,7 @@ class AiService {
 
       List<dynamic> exercises = jsonDecode(cleanText);
 
-      // 🟢 FETCH VISUALS - prioritize curated library, then Giphy search
+      // Fetch visuals from ExerciseDB for the generated exercises
       // Load DB first
       await _loadExerciseDb();
       return await _attachVisuals(exercises);
@@ -218,31 +366,37 @@ class AiService {
   }
 
   Future<List<dynamic>> _attachVisuals(List<dynamic> exercises) async {
+    const String baseUrl = "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/";
+
     final List<dynamic> exercisesWithVisuals = await Future.wait(
       exercises.map((ex) async {
         String exerciseName = ex['name'] ?? "exercise";
-        
-        // 1. Try to find EXACT/CLOSE match in DB first
-        Map<String, dynamic>? match = _findBestMatch(exerciseName);
         List<String> visuals = [];
-        
+
+        // Find best match in the exercise DB using synonym map + fuzzy scoring
+        Map<String, dynamic>? match = _findBestMatch(exerciseName);
+
         if (match != null) {
-          // 🎉 Found a local match!
-          // Overwrite name to ensure UI consistency with video/image
-          ex['name'] = match['name']; 
-          
+          // Overwrite name with DB name for UI consistency
+          ex['name'] = match['name'];
+
           if (match['images'] != null && (match['images'] as List).isNotEmpty) {
-             const String baseUrl = "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/dist/exercises/";
-             visuals = (match['images'] as List).map((path) => "$baseUrl$path").toList().cast<String>();
+            visuals = (match['images'] as List)
+                .map((path) => "$baseUrl$path")
+                .toList()
+                .cast<String>();
           }
-        } 
-        
-        // 2. If no local visuals, try Giphy/Fallback
-        if (visuals.isEmpty) {
-           visuals = await _fetchFallbackVisuals(exerciseName);
         }
-        
-        ex['visual_url'] = visuals.isNotEmpty ? visuals.first : ""; 
+
+        // If no direct match, try muscle-group fallback from the DB
+        if (visuals.isEmpty) {
+          visuals = _getMuscleGroupFallbackVisuals(
+            ex['muscle_group'] ?? '',
+            exerciseName,
+          );
+        }
+
+        ex['visual_url'] = visuals.isNotEmpty ? visuals.first : "";
         ex['visuals'] = visuals;
         return ex;
       }),
@@ -250,200 +404,121 @@ class AiService {
     return exercisesWithVisuals;
   }
   
+  /// Robust exercise matching: synonym map → exact → normalized contains → scored token match.
   Map<String, dynamic>? _findBestMatch(String inputName) {
     if (_exerciseDb.isEmpty) return null;
-    String normalizedInput = inputName.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]'), '');
-    
-    // 1. Exact Name Match (insensitive)
-    try {
-      return _exerciseDb.firstWhere((e) => 
-        (e['name'] as String).toLowerCase().replaceAll(RegExp(r'[^a-z0-9]'), '') == normalizedInput
-      );
-    } catch (e) {/*ignore*/}
+    final String lowerInput = inputName.toLowerCase().trim();
 
-    // 2. Contains Match (Forward/Backward)
+    // ── 1. Synonym map (highest priority — handles "push up" → "Pushups" etc.) ──
+    final String? synonymTarget = _exerciseSynonyms[lowerInput];
+    if (synonymTarget != null) {
+      try {
+        return _exerciseDb.firstWhere(
+          (e) => (e['name'] as String).toLowerCase() == synonymTarget.toLowerCase(),
+        );
+      } catch (_) {}
+    }
+
+    // Also check if any synonym key is a substring of the input (e.g. "close grip push up" contains "push up")
+    // But only do this after checking the full input as a key above.
+    for (final entry in _exerciseSynonyms.entries) {
+      if (lowerInput.contains(entry.key) && entry.key.length >= 4) {
+        try {
+          return _exerciseDb.firstWhere(
+            (e) => (e['name'] as String).toLowerCase() == entry.value.toLowerCase(),
+          );
+        } catch (_) {}
+      }
+    }
+
+    // ── 2. Exact normalized match (strip non-alphanumeric) ──
+    final String normalizedInput = lowerInput.replaceAll(RegExp(r'[^a-z0-9 ]'), '').trim();
     try {
       return _exerciseDb.firstWhere((e) {
-        String dbName = (e['name'] as String).toLowerCase().replaceAll(RegExp(r'[^a-z0-9]'), '');
-        return dbName.contains(normalizedInput) || normalizedInput.contains(dbName);
+        final String dbName = (e['name'] as String).toLowerCase().replaceAll(RegExp(r'[^a-z0-9 ]'), '').trim();
+        return dbName == normalizedInput;
       });
-    } catch (e) {/*ignore*/}
+    } catch (_) {}
 
-    // 3. Token Intersection (handling "Pushups" vs "Push Up")
-    // If input has "Push" and "Up", and DB has "Push Up", that's a match.
-    List<String> inputTokens = inputName.toLowerCase().split(' ').where((s) => s.length > 2).toList();
+    // ── 3. Substring match (input inside DB name or DB name inside input) ──
+    try {
+      return _exerciseDb.firstWhere((e) {
+        final String dbName = (e['name'] as String).toLowerCase();
+        return dbName.contains(lowerInput) || lowerInput.contains(dbName);
+      });
+    } catch (_) {}
+
+    // ── 4. Scored token intersection — rank all DB entries by match quality ──
+    final List<String> inputTokens = normalizedInput
+        .split(' ')
+        .where((s) => s.length > 2)
+        .toList();
     if (inputTokens.isEmpty) return null;
 
-    try {
-      // Sort candidates by number of matched tokens
-      var candidates = _exerciseDb.where((e) {
-        String dbName = (e['name'] as String).toLowerCase();
-        int matches = 0;
-        for (var token in inputTokens) {
-          if (dbName.contains(token)) matches++;
+    int bestScore = 0;
+    Map<String, dynamic>? bestCandidate;
+
+    for (final ex in _exerciseDb) {
+      final String dbName = (ex['name'] as String).toLowerCase();
+      int score = 0;
+      for (final token in inputTokens) {
+        if (dbName.contains(token)) score += token.length; // longer token matches score higher
+      }
+      // Bonus: penalize overly long DB names (prefer "Crunches" over "Cross-Body Crunch on Stability Ball")
+      if (score > 0) {
+        // Normalize by input token coverage
+        final int totalInputChars = inputTokens.fold(0, (sum, t) => sum + t.length);
+        final double coverage = score / totalInputChars;
+        if (coverage >= 0.5 && score > bestScore) {
+          bestScore = score;
+          bestCandidate = ex;
         }
-        return matches >= inputTokens.length; // strict match? or >= 1?
-      }).toList();
-      
-      if (candidates.isNotEmpty) {
-        // Return most generic name (shortest length usually implies "Squat" vs "Barbell Squat")
-        candidates.sort((a, b) => (a['name'] as String).length.compareTo((b['name'] as String).length));
-        return candidates.first;
-      }
-    } catch (e) {/*ignore*/}
-
-    return null;
-  }
-
-  Future<List<String>> _fetchFallbackVisuals(String exerciseName) async {
-    String normalizedName = exerciseName.toLowerCase().trim();
-    
-    // Check curated
-    String? curatedGif = _findCuratedGif(normalizedName);
-    if (curatedGif != null) return [curatedGif];
-
-    // Giphy Search
-    if (_giphyKey.isNotEmpty) {
-      try {
-        String? giphyGif = await _searchGiphyFitness(normalizedName);
-        if (giphyGif != null) return [giphyGif];
-      } catch (e) {
-        print("Giphy Error: $e");
       }
     }
 
-    return [_getFallbackGif()];
+    return bestCandidate;
   }
 
-  /// Fetches exercise visuals (List of URLs) from local DB, curated library, or Giphy
-  Future<List<String>> _fetchExerciseVisuals(String exerciseName) async {
-    String normalizedName = exerciseName.toLowerCase().trim();
-    
-    // 1. Check Local DB (Best quality - slideshows)
-    final dbVisuals = _findInExerciseDb(normalizedName);
-    if (dbVisuals.isNotEmpty) return dbVisuals;
-
-    // 2. Check curated Giphy library
-    String? curatedGif = _findCuratedGif(normalizedName);
-    if (curatedGif != null) return [curatedGif];
-
-    // 3. Try Giphy search
-    if (_giphyKey.isNotEmpty) {
-      try {
-        String? giphyGif = await _searchGiphyFitness(normalizedName);
-        if (giphyGif != null) return [giphyGif];
-      } catch (e) {
-        print("Giphy Error: $e");
-      }
-    }
-
-    // 4. Fallback
-    return [_getFallbackGif()];
-  }
-
-  /// Fuzzy search in local JSON database
-  List<String> _findInExerciseDb(String name) {
+  /// When no name match is found, find an exercise in the DB with the same muscle group.
+  List<String> _getMuscleGroupFallbackVisuals(String muscleGroup, String exerciseName) {
     if (_exerciseDb.isEmpty) return [];
+    const String baseUrl = "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/";
 
-    // Base URL for the images
-    const String baseUrl = "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/dist/exercises/";
+    // Map UI muscle groups to DB primaryMuscles values
+    final Map<String, List<String>> muscleMap = {
+      'legs': ['quadriceps', 'hamstrings', 'glutes', 'calves', 'adductors', 'abductors'],
+      'core': ['abdominals', 'abductors'],
+      'abs': ['abdominals'],
+      'arms': ['biceps', 'triceps', 'forearms'],
+      'upper body': ['chest', 'shoulders', 'triceps', 'biceps'],
+      'chest': ['chest'],
+      'back': ['lats', 'middle back', 'lower back', 'traps'],
+      'shoulders': ['shoulders'],
+      'full body': ['quadriceps', 'chest', 'shoulders', 'abdominals'],
+      'glutes': ['glutes'],
+      'cardio': ['quadriceps', 'hamstrings', 'calves'],
+    };
 
-    // Direct match
-    var match = _exerciseDb.firstWhere(
-      (ex) => (ex['name'] as String).toLowerCase() == name,
-      orElse: () => null
-    );
+    final String groupLower = muscleGroup.toLowerCase();
+    final List<String> targetMuscles = muscleMap[groupLower] ?? [];
 
-    // Fuzzy match
-    if (match == null) {
-      try {
-        match = _exerciseDb.firstWhere(
-          (ex) {
-            String dbName = (ex['name'] as String).toLowerCase();
-            return dbName.contains(name) || name.contains(dbName);
-          },
-          orElse: () => null
-        );
-      } catch (e) {
-        // ignore
+    if (targetMuscles.isEmpty) return [];
+
+    // Find first DB exercise matching the muscle group that has images
+    for (final ex in _exerciseDb) {
+      final List<dynamic> primaryMuscles = ex['primaryMuscles'] ?? [];
+      final bool muscleMatch = primaryMuscles.any(
+        (m) => targetMuscles.contains((m as String).toLowerCase()),
+      );
+      if (muscleMatch && ex['images'] != null && (ex['images'] as List).isNotEmpty) {
+        return (ex['images'] as List)
+            .map((path) => "$baseUrl$path")
+            .toList()
+            .cast<String>();
       }
-    }
-
-    if (match != null && match['images'] != null) {
-      List<dynamic> imgs = match['images'];
-      return imgs.map((path) => "$baseUrl$path").toList().cast<String>();
     }
 
     return [];
-  }
-
-  /// Search curated library with fuzzy matching
-  String? _findCuratedGif(String exerciseName) {
-    // Direct match
-    if (_curatedExerciseGifs.containsKey(exerciseName)) {
-      return _curatedExerciseGifs[exerciseName];
-    }
-    
-    // Partial match - check if any key is contained in the exercise name
-    for (var entry in _curatedExerciseGifs.entries) {
-      if (exerciseName.contains(entry.key) || entry.key.contains(exerciseName)) {
-        return entry.value;
-      }
-    }
-    
-    // Word-based match - check if key words match
-    List<String> nameWords = exerciseName.split(' ');
-    for (var entry in _curatedExerciseGifs.entries) {
-      List<String> keyWords = entry.key.split(' ');
-      for (var word in nameWords) {
-        if (word.length > 3 && keyWords.any((k) => k.contains(word) || word.contains(k))) {
-          return entry.value;
-        }
-      }
-    }
-    
-    return null;
-  }
-
-  /// Search Giphy for fitness-specific GIFs
-  Future<String?> _searchGiphyFitness(String exerciseName) async {
-    try {
-      // Add fitness keywords to avoid memes
-      final searchQuery = Uri.encodeComponent("$exerciseName exercise fitness workout");
-      final uri = Uri.parse(
-        'https://api.giphy.com/v1/gifs/search?api_key=$_giphyKey&q=$searchQuery&limit=5&rating=g&lang=en',
-      );
-      
-      final response = await http.get(uri).timeout(const Duration(seconds: 5));
-
-      if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
-        if (data['data'] != null && data['data'].isNotEmpty) {
-          // Try to find a GIF from a fitness-related source
-          for (var gif in data['data']) {
-            String? username = gif['username']?.toString().toLowerCase() ?? '';
-            // Prefer verified fitness accounts
-            if (username.contains('fit') || 
-                username.contains('gym') || 
-                username.contains('workout') ||
-                username.contains('exercise') ||
-                username.contains('health')) {
-              return gif['images']['original']['url'];
-            }
-          }
-          // Fallback to first result
-          return data['data'][0]['images']['original']['url'];
-        }
-      }
-    } catch (e) {
-      print("Giphy search error: $e");
-    }
-    return null;
-  }
-
-  String _getFallbackGif() {
-    // Generic workout GIF as ultimate fallback
-    return "https://media.giphy.com/media/1qfKN8Dt0CRdCRxz9q/giphy.gif";
   }
 
   List<dynamic> _getFallbackRoutine(int count) {
@@ -517,16 +592,9 @@ class AiService {
     for (int i = 0; i < count; i++) {
       var ex = Map<String, dynamic>.from(pool[i % pool.length]);
       // Ensure visuals are populated for fallback too
-      // We can use the async visual fetcher if we want, but synchronous fallback is safer
-      // Let's just use empty visuals and let the UI handle it or pre-populate common ones
-      // Actually, we can just leave 'visuals' empty and let the visualizer use the fallback gif or we can try to find them
-      // But _getFallbackRoutine is synchronous. 
-      // Let's add standard Giphy URLs for these common ones hardcoded if needed, or better, 
-      // since the UI now uses AiService to fetch visuals, we should probably fetch visuals for fallback too?
-      // No, generateWorkout returns the list with visuals. 
+      // We leave 'visuals' empty and let _attachVisuals handle DB matching
+      // since the UI now uses the ExerciseDB images.
       // If we return raw fallback here, generateWorkout's try/catch block catches AI error.
-      // But wait, the try/catch block WRAPS the AI generation.
-      // If AI fails, it calls _getFallbackRoutine(count).
       // AND THEN it returns that result.
       // It DOES NOT fetch visuals for the fallback routine because the visual fetching is inside the try block (lines 151-158).
       

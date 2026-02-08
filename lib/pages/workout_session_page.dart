@@ -294,7 +294,7 @@ class _WorkoutSessionPageState extends State<WorkoutSessionPage> {
   String _getSafeUrl(Map<String, dynamic> exercise) {
     final String? rawUrl = exercise['visual_url'];
     if (rawUrl == null || rawUrl.trim().isEmpty || !rawUrl.startsWith('http')) {
-      return "https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExazNlYnZqYnZqYnZqYnZqYnZqYnZqYnZqYnZqYnZq/1000/giphy.gif"; 
+      return ""; // No fallback — the UI handles empty URLs gracefully
     }
     return rawUrl;
   }
