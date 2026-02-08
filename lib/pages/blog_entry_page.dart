@@ -28,7 +28,6 @@ class _AdminGate extends StatefulWidget {
 
 class _AdminGateState extends State<_AdminGate> {
   bool _loading = true;
-  bool _isAdmin = false;
   bool _isLoggedIn = false;
 
   @override
@@ -39,50 +38,47 @@ class _AdminGateState extends State<_AdminGate> {
 
   Future<void> _checkAccess() async {
     final user = FirebaseAuth.instance.currentUser;
-    if (user == null) {
-      setState(() {
-        _loading = false;
-        _isLoggedIn = false;
-      });
-      return;
-    }
-    final admin = await FirebaseService().isAdmin();
     setState(() {
       _loading = false;
-      _isLoggedIn = true;
-      _isAdmin = admin;
+      _isLoggedIn = user != null;
     });
   }
 
-  @override
-  Widget build(BuildContext context) {
-    if (_loading) {
-      return Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 24),
-        child: Center(
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: AppDimensions.maxWidth),
-            child: Container(
-              padding: const EdgeInsets.all(48),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(24),
-                border: Border.all(color: AppColors.borderBlack, width: 3),
-                boxShadow: const [
-                  BoxShadow(
-                      color: AppColors.borderBlack, offset: Offset(6, 6))
-                ],
-              ),
-              child: const Center(
-                child: CircularProgressIndicator(
-                  valueColor: AlwaysStoppedAnimation(AppColors.primaryTeal),
-                  strokeWidth: 3,
-                ),
+  Widget _loadingWidget(bool isMobile) {
+    return Padding(
+      padding: EdgeInsets.symmetric(horizontal: isMobile ? 16 : 24),
+      child: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: AppDimensions.maxWidth),
+          child: Container(
+            padding: EdgeInsets.all(isMobile ? 32 : 48),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(isMobile ? 18 : 24),
+              border: Border.all(color: AppColors.borderBlack, width: 3),
+              boxShadow: const [
+                BoxShadow(color: AppColors.borderBlack, offset: Offset(6, 6))
+              ],
+            ),
+            child: const Center(
+              child: CircularProgressIndicator(
+                valueColor: AlwaysStoppedAnimation(AppColors.primaryTeal),
+                strokeWidth: 3,
               ),
             ),
           ),
         ),
-      );
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final screenW = MediaQuery.of(context).size.width;
+    final isMobile = screenW < 600;
+
+    if (_loading) {
+      return _loadingWidget(isMobile);
     }
 
     if (!_isLoggedIn) {
@@ -90,19 +86,11 @@ class _AdminGateState extends State<_AdminGate> {
         icon: Icons.lock_outline_rounded,
         title: "Login Required",
         desc: "You need to be logged in to submit a post.",
+        isMobile: isMobile,
       );
     }
 
-    if (!_isAdmin) {
-      return _AccessDenied(
-        icon: Icons.admin_panel_settings_outlined,
-        title: "Admin Only",
-        desc:
-            "Only admin accounts can publish blog posts. Contact the site administrator for access.",
-      );
-    }
-
-    return _BlogForm();
+    return _BlogForm(isMobile: isMobile);
   }
 }
 
@@ -110,27 +98,31 @@ class _AccessDenied extends StatelessWidget {
   final IconData icon;
   final String title;
   final String desc;
+  final bool isMobile;
   const _AccessDenied(
-      {required this.icon, required this.title, required this.desc});
+      {required this.icon,
+      required this.title,
+      required this.desc,
+      this.isMobile = false});
 
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 24),
+      padding: EdgeInsets.symmetric(horizontal: isMobile ? 16 : 24),
       child: Center(
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: AppDimensions.maxWidth),
           child: FadeSlideIn(
             child: Container(
               width: double.infinity,
-              padding: const EdgeInsets.symmetric(vertical: 56, horizontal: 32),
+              padding: EdgeInsets.symmetric(
+                  vertical: isMobile ? 36 : 56, horizontal: isMobile ? 20 : 32),
               decoration: BoxDecoration(
                 color: Colors.white,
                 borderRadius: BorderRadius.circular(24),
                 border: Border.all(color: AppColors.borderBlack, width: 3),
                 boxShadow: const [
-                  BoxShadow(
-                      color: AppColors.borderBlack, offset: Offset(6, 6))
+                  BoxShadow(color: AppColors.borderBlack, offset: Offset(6, 6))
                 ],
               ),
               child: Column(
@@ -168,8 +160,8 @@ class _AccessDenied extends StatelessWidget {
                       decoration: BoxDecoration(
                         color: AppColors.textDark,
                         borderRadius: BorderRadius.circular(12),
-                        border:
-                            Border.all(color: AppColors.borderBlack, width: 2.5),
+                        border: Border.all(
+                            color: AppColors.borderBlack, width: 2.5),
                         boxShadow: const [
                           BoxShadow(
                               color: AppColors.borderBlack,
@@ -195,6 +187,8 @@ class _AccessDenied extends StatelessWidget {
 }
 
 class _BlogForm extends StatefulWidget {
+  final bool isMobile;
+  const _BlogForm({this.isMobile = false});
   @override
   State<_BlogForm> createState() => _BlogFormState();
 }
@@ -220,9 +214,13 @@ class _BlogFormState extends State<_BlogForm> {
   @override
   void initState() {
     super.initState();
-    final user = FirebaseAuth.instance.currentUser;
-    if (user != null && user.displayName != null) {
-      _authorCtrl.text = user.displayName!;
+    _loadAuthorName();
+  }
+
+  Future<void> _loadAuthorName() async {
+    final name = await FirebaseService().getCurrentUserName();
+    if (name.isNotEmpty && mounted) {
+      _authorCtrl.text = name;
     }
   }
 
@@ -251,6 +249,7 @@ class _BlogFormState extends State<_BlogForm> {
         'category': _selectedCategory,
         'createdAt': FieldValue.serverTimestamp(),
         'likes': 0,
+        'status': 'pending',
       });
 
       _titleCtrl.clear();
@@ -278,17 +277,20 @@ class _BlogFormState extends State<_BlogForm> {
 
   @override
   Widget build(BuildContext context) {
+    final isMobile = widget.isMobile;
+
     if (_submitted) {
       return Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 24),
+        padding: EdgeInsets.symmetric(horizontal: isMobile ? 16 : 24),
         child: Center(
           child: ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: AppDimensions.maxWidth),
             child: FadeSlideIn(
               child: Container(
                 width: double.infinity,
-                padding:
-                    const EdgeInsets.symmetric(vertical: 56, horizontal: 32),
+                padding: EdgeInsets.symmetric(
+                    vertical: isMobile ? 36 : 56,
+                    horizontal: isMobile ? 20 : 32),
                 decoration: BoxDecoration(
                   color: Colors.white,
                   borderRadius: BorderRadius.circular(24),
@@ -309,18 +311,18 @@ class _BlogFormState extends State<_BlogForm> {
                             color: const Color(0xFF22C55E).withOpacity(0.3),
                             width: 2),
                       ),
-                      child: const Icon(Icons.check_circle_rounded,
+                      child: const Icon(Icons.hourglass_top_rounded,
                           size: 40, color: Color(0xFF22C55E)),
                     ),
                     const SizedBox(height: 20),
-                    Text("Post Published!",
+                    Text("Post Submitted!",
                         style: GoogleFonts.inter(
-                            fontSize: 24,
+                            fontSize: isMobile ? 20 : 24,
                             fontWeight: FontWeight.w900,
                             color: AppColors.textDark)),
                     const SizedBox(height: 8),
                     Text(
-                        "Your post is now live on the blog for the community to see.",
+                        "Your post has been submitted for review. An admin will approve it before it goes live.",
                         textAlign: TextAlign.center,
                         style: GoogleFonts.inter(
                             fontSize: 15,
@@ -361,20 +363,19 @@ class _BlogFormState extends State<_BlogForm> {
     }
 
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 24),
+      padding: EdgeInsets.symmetric(horizontal: isMobile ? 16 : 24),
       child: Center(
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: AppDimensions.maxWidth),
           child: FadeSlideIn(
             child: Container(
-              padding: const EdgeInsets.all(32),
+              padding: EdgeInsets.all(isMobile ? 20 : 32),
               decoration: BoxDecoration(
                 color: Colors.white,
-                borderRadius: BorderRadius.circular(24),
+                borderRadius: BorderRadius.circular(isMobile ? 18 : 24),
                 border: Border.all(color: AppColors.borderBlack, width: 3),
                 boxShadow: const [
-                  BoxShadow(
-                      color: AppColors.borderBlack, offset: Offset(6, 6))
+                  BoxShadow(color: AppColors.borderBlack, offset: Offset(6, 6))
                 ],
               ),
               child: Column(
@@ -400,13 +401,14 @@ class _BlogFormState extends State<_BlogForm> {
                           children: [
                             Text("New Blog Post",
                                 style: GoogleFonts.inter(
-                                    fontSize: 22,
+                                    fontSize: isMobile ? 18 : 22,
                                     fontWeight: FontWeight.w900,
                                     color: AppColors.textDark,
                                     letterSpacing: -0.5)),
-                            Text("Write and publish to the Fittie blog.",
+                            Text("Submit a post for admin review.",
                                 style: GoogleFonts.inter(
-                                    fontSize: 13, color: AppColors.textSoft)),
+                                    fontSize: isMobile ? 12 : 13,
+                                    color: AppColors.textSoft)),
                           ],
                         ),
                       ),
@@ -469,9 +471,8 @@ class _BlogFormState extends State<_BlogForm> {
                               style: GoogleFonts.inter(
                                   fontSize: 12,
                                   fontWeight: FontWeight.w700,
-                                  color: sel
-                                      ? Colors.white
-                                      : AppColors.textDark)),
+                                  color:
+                                      sel ? Colors.white : AppColors.textDark)),
                         ),
                       );
                     }).toList(),
@@ -550,7 +551,7 @@ class _BlogFormState extends State<_BlogForm> {
                                         AlwaysStoppedAnimation(Colors.white),
                                   ),
                                 )
-                              : Text("PUBLISH POST",
+                              : Text("SUBMIT FOR REVIEW",
                                   style: GoogleFonts.inter(
                                       fontSize: 14,
                                       fontWeight: FontWeight.w900,

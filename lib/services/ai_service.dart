@@ -225,16 +225,16 @@ class AiService {
 
   AiService() {
     _model = GenerativeModel(
-      model: 'gemini-3-flash',
+      model: 'gemini-3-flash-preview',
       apiKey: _geminiKey,
       generationConfig: GenerationConfig(responseMimeType: 'application/json'),
     );
 
-    _chatModel = GenerativeModel(model: 'gemini-3-flash', apiKey: _geminiKey);
+    _chatModel = GenerativeModel(model: 'gemini-3-flash-preview', apiKey: _geminiKey);
 
     // Vision model for gym equipment recognition
     _visionModel = GenerativeModel(
-      model: 'gemini-3-flash',
+      model: 'gemini-3-flash-preview',
       apiKey: _geminiKey,
       generationConfig: GenerationConfig(responseMimeType: 'application/json'),
     );

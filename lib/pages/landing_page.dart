@@ -1,6 +1,7 @@
 import 'dart:ui';
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'login_page.dart';
 import 'signup_page.dart';
 import 'features_page.dart';
@@ -403,33 +404,45 @@ class PopHeader extends StatelessWidget {
                   ),
                   Row(
                     children: [
-                      TextButton(
-                        onPressed: () {
-                          Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                  builder: (context) => const LoginPage()));
-                        },
-                        style: TextButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(horizontal: 16),
+                      if (FirebaseAuth.instance.currentUser != null) ...[
+                        SquishyButton(
+                          label: isMobile ? "DASHBOARD" : "BACK TO DASHBOARD",
+                          isSmall: true,
+                          onTap: () {
+                            if (Navigator.canPop(context)) {
+                              Navigator.pop(context);
+                            }
+                          },
                         ),
-                        child: Text(isMobile ? "Log In" : "LOGIN",
-                            style: GoogleFonts.inter(
-                                color: AppColors.textDark,
-                                fontWeight: FontWeight.w800,
-                                fontSize: 13)),
-                      ),
-                      const SizedBox(width: 8),
-                      SquishyButton(
-                        label: isMobile ? "START" : "GET STARTED",
-                        isSmall: true,
-                        onTap: () {
-                          Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                  builder: (context) => const SignUpPage()));
-                        },
-                      ),
+                      ] else ...[
+                        TextButton(
+                          onPressed: () {
+                            Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                    builder: (context) => const LoginPage()));
+                          },
+                          style: TextButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(horizontal: 16),
+                          ),
+                          child: Text(isMobile ? "Log In" : "LOGIN",
+                              style: GoogleFonts.inter(
+                                  color: AppColors.textDark,
+                                  fontWeight: FontWeight.w800,
+                                  fontSize: 13)),
+                        ),
+                        const SizedBox(width: 8),
+                        SquishyButton(
+                          label: isMobile ? "START" : "GET STARTED",
+                          isSmall: true,
+                          onTap: () {
+                            Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                    builder: (context) => const SignUpPage()));
+                          },
+                        ),
+                      ],
                     ],
                   )
                 ],

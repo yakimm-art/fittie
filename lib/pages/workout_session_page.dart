@@ -251,34 +251,104 @@ class _WorkoutSessionPageState extends State<WorkoutSessionPage> {
     await _firebaseService.saveCompletedWorkout(_activeRoutine, _totalDuration);
 
     if (mounted) {
+      final int totalMins = (_totalDuration / 60).floor();
+      final int totalSecs = _totalDuration % 60;
+      final int totalCalories = _activeRoutine.fold<int>(0, (sum, ex) => sum + ((ex['calories'] ?? 8) as int));
+
       showDialog(
         context: context,
         barrierDismissible: false,
-        builder: (ctx) => AlertDialog(
+        builder: (ctx) => Dialog(
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(32),
+            borderRadius: BorderRadius.circular(24),
             side: const BorderSide(color: AppColors.textDark, width: 3),
           ),
-          title: Text("🎉 WELL DONE!", style: GoogleFonts.inter(fontWeight: FontWeight.w900)),
-          content: Text("You completed the flow! Session saved to your history.", style: GoogleFonts.inter(fontWeight: FontWeight.w500)),
-          actions: [
-            Padding(
-              padding: const EdgeInsets.all(8.0),
-              child: ElevatedButton(
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: widget.themeColor,
-                  foregroundColor: Colors.white,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-                ),
-                onPressed: () {
-                  Navigator.pop(ctx); 
-                  Navigator.pop(context); 
-                },
-                child: Text("FINISH", style: GoogleFonts.inter(fontWeight: FontWeight.w900)),
+          backgroundColor: Colors.white,
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 400),
+            child: Padding(
+              padding: const EdgeInsets.all(28),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // Trophy badge
+                  Container(
+                    padding: const EdgeInsets.all(20),
+                    decoration: BoxDecoration(
+                      color: widget.themeColor.withOpacity(0.1),
+                      shape: BoxShape.circle,
+                      border: Border.all(color: AppColors.textDark, width: 2.5),
+                      boxShadow: const [
+                        BoxShadow(color: AppColors.textDark, offset: Offset(3, 3)),
+                      ],
+                    ),
+                    child: const Text("🏆", style: TextStyle(fontSize: 48)),
+                  ),
+                  const SizedBox(height: 20),
+                  Text("WORKOUT COMPLETE!",
+                      style: GoogleFonts.inter(
+                          fontSize: 22, fontWeight: FontWeight.w900, color: AppColors.textDark, letterSpacing: -0.5)),
+                  const SizedBox(height: 6),
+                  Text("Session saved to your history",
+                      style: GoogleFonts.inter(fontSize: 13, color: AppColors.textDark.withOpacity(0.5))),
+                  const SizedBox(height: 24),
+
+                  // Stats row
+                  Row(
+                    children: [
+                      _buildCompletionStat("⏱️", "$totalMins:${totalSecs.toString().padLeft(2, '0')}", "Duration"),
+                      const SizedBox(width: 12),
+                      _buildCompletionStat("🔥", "$totalCalories", "Calories"),
+                      const SizedBox(width: 12),
+                      _buildCompletionStat("💪", "${_activeRoutine.length}", "Exercises"),
+                    ],
+                  ),
+                  const SizedBox(height: 24),
+
+                  // Bear
+                  SizedBox(
+                    height: 80,
+                    width: 80,
+                    child: const FittedBox(
+                      fit: BoxFit.contain,
+                      child: KawaiiPolarBear(isTalking: true),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text("Fittie is proud of you! 🐻",
+                      style: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.w700, color: AppColors.textDark)),
+                  const SizedBox(height: 24),
+
+                  // Finish button
+                  SizedBox(
+                    width: double.infinity,
+                    child: GestureDetector(
+                      onTap: () {
+                        Navigator.pop(ctx);
+                        Navigator.pop(context);
+                      },
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                        decoration: BoxDecoration(
+                          color: widget.themeColor,
+                          borderRadius: BorderRadius.circular(14),
+                          border: Border.all(color: AppColors.textDark, width: 2.5),
+                          boxShadow: const [
+                            BoxShadow(color: AppColors.textDark, offset: Offset(4, 4)),
+                          ],
+                        ),
+                        child: Center(
+                          child: Text("FINISH 🎉",
+                              style: GoogleFonts.inter(
+                                  fontSize: 16, fontWeight: FontWeight.w900, color: Colors.white, letterSpacing: 1)),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
               ),
-            )
-          ],
+            ),
+          ),
         ),
       );
     }
@@ -332,7 +402,6 @@ class _WorkoutSessionPageState extends State<WorkoutSessionPage> {
       body: LayoutBuilder(
         builder: (context, constraints) {
           bool isWeb = constraints.maxWidth > 900;
-          bool isShortMobile = constraints.maxHeight < 720;
 
           return Stack(
             children: [
@@ -357,14 +426,14 @@ class _WorkoutSessionPageState extends State<WorkoutSessionPage> {
                       child: ConstrainedBox(
                         constraints: BoxConstraints(maxWidth: isWeb ? 900 : 600),
                         child: Padding(
-                          padding: const EdgeInsets.fromLTRB(24, 16, 24, 0),
+                          padding: const EdgeInsets.fromLTRB(24, 12, 24, 0),
                           child: Row(
                             children: [
                               GestureDetector(
                                 onTap: () => Navigator.pop(context),
                                 child: _buildHeaderIcon(Icons.close),
                               ),
-                              const SizedBox(width: 20),
+                              const SizedBox(width: 16),
                               Expanded(
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -392,7 +461,7 @@ class _WorkoutSessionPageState extends State<WorkoutSessionPage> {
                                   ],
                                 ),
                               ),
-                              const SizedBox(width: 20),
+                              const SizedBox(width: 16),
                               _buildHeaderCounter(),
                             ],
                           ),
@@ -400,176 +469,148 @@ class _WorkoutSessionPageState extends State<WorkoutSessionPage> {
                       ),
                     ),
 
-                    // 2. SCROLLABLE MAIN CONTENT
+                    const SizedBox(height: 12),
+
+                    // 2. EXERCISE VISUAL (fills available space)
                     Expanded(
-                      child: SingleChildScrollView(
-                        physics: const BouncingScrollPhysics(),
-                        child: Center(
-                          child: ConstrainedBox(
-                            constraints: BoxConstraints(maxWidth: isWeb ? 900 : 600),
-                            child: Padding(
-                              padding: const EdgeInsets.symmetric(horizontal: 24),
-                              child: Column(
-                                children: [
-                                  const SizedBox(height: 20),
-
-                                  // MAIN DISPLAY (TV SCREEN)
-                                  Container(
-                                    decoration: BoxDecoration(
-                                      color: Colors.black,
-                                      borderRadius: BorderRadius.circular(32),
-                                      border: Border.all(color: AppColors.textDark, width: 4),
-                                      boxShadow: const [
-                                        BoxShadow(color: AppColors.textDark, offset: Offset(6, 6), blurRadius: 0),
-                                      ],
+                      child: Center(
+                        child: ConstrainedBox(
+                          constraints: BoxConstraints(maxWidth: isWeb ? 900 : 600),
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 24),
+                            child: Container(
+                              decoration: BoxDecoration(
+                                color: Colors.black,
+                                borderRadius: BorderRadius.circular(28),
+                                border: Border.all(color: AppColors.textDark, width: 3.5),
+                                boxShadow: const [
+                                  BoxShadow(color: AppColors.textDark, offset: Offset(5, 5), blurRadius: 0),
+                                ],
+                              ),
+                              child: ClipRRect(
+                                borderRadius: BorderRadius.circular(24),
+                                child: Stack(
+                                  fit: StackFit.expand,
+                                  children: [
+                                    // Exercise images
+                                    ExerciseVisualizer(
+                                      visuals: exercise['visuals'] != null 
+                                          ? (exercise['visuals'] as List).map((e) => e.toString()).toList()
+                                          : [gifUrl],
                                     ),
-                                    child: ClipRRect(
-                                      borderRadius: BorderRadius.circular(28),
-                                      child: AspectRatio(
-                                        aspectRatio: isWeb ? 16 / 9 : 1.3, 
-                                        child: Stack(
-                                          fit: StackFit.expand,
+                                    
+                                    // Quirky badge
+                                    Positioned(
+                                      top: 12, right: 12,
+                                      child: Container(
+                                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                                        decoration: BoxDecoration(
+                                          color: AppColors.textDark.withOpacity(0.85),
+                                          borderRadius: BorderRadius.circular(12),
+                                          border: Border.all(color: Colors.white.withOpacity(0.2), width: 1),
+                                        ),
+                                        child: Row(
+                                          mainAxisSize: MainAxisSize.min,
                                           children: [
-                                            ExerciseVisualizer(
-                                              visuals: exercise['visuals'] != null 
-                                                  ? (exercise['visuals'] as List).map((e) => e.toString()).toList()
-                                                  : [gifUrl],
-                                            ),
-                                            
-                                            // 🟢 QUIRKY DISCLAIMER BADGE
-                                            Positioned(
-                                              top: 12, right: 12,
-                                              child: Container(
-                                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                                                decoration: BoxDecoration(
-                                                  color: AppColors.textDark.withOpacity(0.85),
-                                                  borderRadius: BorderRadius.circular(12),
-                                                  border: Border.all(color: Colors.white.withOpacity(0.2), width: 1),
-                                                ),
-                                                child: Row(
-                                                  mainAxisSize: MainAxisSize.min,
-                                                  children: [
-                                                    const Icon(Icons.auto_awesome, size: 12, color: Colors.amber),
-                                                    const SizedBox(width: 6),
-                                                    Text(quirkyTag, style: GoogleFonts.inter(color: Colors.white, fontSize: 9, fontWeight: FontWeight.w900, letterSpacing: 0.5)),
-                                                  ],
-                                                ),
-                                              ),
-                                            ),
+                                            const Icon(Icons.auto_awesome, size: 12, color: Colors.amber),
+                                            const SizedBox(width: 6),
+                                            Text(quirkyTag, style: GoogleFonts.inter(color: Colors.white, fontSize: 9, fontWeight: FontWeight.w900, letterSpacing: 0.5)),
+                                          ],
+                                        ),
+                                      ),
+                                    ),
 
-                                            // Preview overlay
-                                            if (_isPreviewPhase)
+                                    // Preview countdown overlay
+                                    if (_isPreviewPhase)
+                                      Container(
+                                        color: Colors.black.withOpacity(0.55),
+                                        child: Center(
+                                          child: Column(
+                                            mainAxisAlignment: MainAxisAlignment.center,
+                                            children: [
+                                              Text("GET READY",
+                                                  style: GoogleFonts.inter(color: Colors.white, fontSize: isWeb ? 28 : 20, fontWeight: FontWeight.w900, letterSpacing: 2)),
+                                              const SizedBox(height: 4),
+                                              Text("$emoji $name",
+                                                  style: GoogleFonts.inter(color: widget.themeColor, fontSize: isWeb ? 18 : 14, fontWeight: FontWeight.w800)),
+                                              const SizedBox(height: 16),
+                                              // BIG countdown number inside the visual
                                               Container(
-                                                color: Colors.black.withOpacity(0.5),
-                                                child: Center(
-                                                  child: Column(
-                                                    mainAxisAlignment: MainAxisAlignment.center,
-                                                    children: [
-                                                      Text(
-                                                        "GET READY",
-                                                        style: GoogleFonts.inter(
-                                                          color: Colors.white,
-                                                          fontSize: isWeb ? 32 : 24,
-                                                          fontWeight: FontWeight.w900,
-                                                          letterSpacing: 2,
-                                                        ),
-                                                      ),
-                                                      const SizedBox(height: 8),
-                                                      Text(
-                                                        "$emoji $name",
-                                                        style: GoogleFonts.inter(
-                                                          color: widget.themeColor,
-                                                          fontSize: isWeb ? 20 : 16,
-                                                          fontWeight: FontWeight.w800,
-                                                        ),
-                                                      ),
-                                                    ],
-                                                  ),
-                                                ),
-                                              ),
-
-                                            Positioned(
-                                              bottom: 0, left: 0, right: 0,
-                                              child: Container(
-                                                padding: const EdgeInsets.all(16),
+                                                padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 12),
                                                 decoration: BoxDecoration(
-                                                  gradient: LinearGradient(
-                                                    begin: Alignment.topCenter,
-                                                    end: Alignment.bottomCenter,
-                                                    colors: [Colors.transparent, Colors.black.withOpacity(0.85)],
-                                                  ),
-                                                ),
-                                                child: Row(
-                                                  children: [
-                                                    Text(emoji, style: const TextStyle(fontSize: 24)),
-                                                    const SizedBox(width: 12),
-                                                    Expanded(
-                                                      child: Text(name.toUpperCase(), 
-                                                        style: GoogleFonts.inter(color: Colors.white, fontWeight: FontWeight.w900, fontSize: isWeb ? 24 : 18, letterSpacing: 0.5)),
-                                                    ),
+                                                  color: widget.themeColor,
+                                                  borderRadius: BorderRadius.circular(20),
+                                                  border: Border.all(color: Colors.white, width: 3),
+                                                  boxShadow: [
+                                                    BoxShadow(color: Colors.black.withOpacity(0.3), offset: const Offset(3, 3)),
                                                   ],
                                                 ),
+                                                child: Text(
+                                                  "$_previewTimeLeft",
+                                                  style: GoogleFonts.inter(color: Colors.white, fontSize: isWeb ? 64 : 48, fontWeight: FontWeight.w900,
+                                                      fontFeatures: [const FontFeature.tabularFigures()]),
+                                                ),
                                               ),
+                                            ],
+                                          ),
+                                        ),
+                                      ),
+
+                                    // Active exercise: timer overlay at top-left
+                                    if (!_isPreviewPhase)
+                                      Positioned(
+                                        top: 12, left: 12,
+                                        child: Container(
+                                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                                          decoration: BoxDecoration(
+                                            color: _timeLeft <= 5 ? const Color(0xFFE53E3E) : widget.themeColor,
+                                            borderRadius: BorderRadius.circular(14),
+                                            border: Border.all(color: Colors.white, width: 2),
+                                            boxShadow: [
+                                              BoxShadow(color: Colors.black.withOpacity(0.3), offset: const Offset(2, 2)),
+                                            ],
+                                          ),
+                                          child: Row(
+                                            mainAxisSize: MainAxisSize.min,
+                                            children: [
+                                              Icon(_timeLeft <= 5 ? Icons.timer_off_rounded : Icons.timer_rounded, color: Colors.white, size: 18),
+                                              const SizedBox(width: 8),
+                                              Text(
+                                                "00:${_timeLeft.toString().padLeft(2, '0')}",
+                                                style: GoogleFonts.inter(color: Colors.white, fontSize: isWeb ? 22 : 18, fontWeight: FontWeight.w900,
+                                                    fontFeatures: [const FontFeature.tabularFigures()]),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                      ),
+
+                                    // Exercise name bar at the bottom
+                                    Positioned(
+                                      bottom: 0, left: 0, right: 0,
+                                      child: Container(
+                                        padding: const EdgeInsets.all(14),
+                                        decoration: BoxDecoration(
+                                          gradient: LinearGradient(
+                                            begin: Alignment.topCenter,
+                                            end: Alignment.bottomCenter,
+                                            colors: [Colors.transparent, Colors.black.withOpacity(0.85)],
+                                          ),
+                                        ),
+                                        child: Row(
+                                          children: [
+                                            Text(emoji, style: const TextStyle(fontSize: 22)),
+                                            const SizedBox(width: 10),
+                                            Expanded(
+                                              child: Text(name.toUpperCase(), 
+                                                style: GoogleFonts.inter(color: Colors.white, fontWeight: FontWeight.w900, fontSize: isWeb ? 20 : 16, letterSpacing: 0.5)),
                                             ),
                                           ],
                                         ),
                                       ),
                                     ),
-                                  ),
-
-                                  const SizedBox(height: 15),
-
-                                  // TIMER SECTION
-                                  Column(
-                                    children: [
-                                      if (_isPreviewPhase)
-                                        Column(
-                                          children: [
-                                            Text(
-                                              "STARTING IN",
-                                              style: GoogleFonts.inter(
-                                                fontWeight: FontWeight.w800, 
-                                                fontSize: 12, 
-                                                color: widget.themeColor,
-                                                letterSpacing: 1.5,
-                                              ),
-                                            ),
-                                            Text(
-                                              "$_previewTimeLeft",
-                                              style: GoogleFonts.inter(
-                                                color: widget.themeColor, 
-                                                fontSize: isWeb ? 100 : (isShortMobile ? 55 : 75), 
-                                                fontWeight: FontWeight.w900, 
-                                                fontFeatures: [const FontFeature.tabularFigures()],
-                                                letterSpacing: -2,
-                                              ),
-                                            ),
-                                            Text("SECONDS", 
-                                              style: GoogleFonts.inter(fontWeight: FontWeight.w800, fontSize: 10, color: AppColors.textDark.withOpacity(0.4))),
-                                          ],
-                                        )
-                                      else
-                                        Column(
-                                          children: [
-                                            Text(
-                                              "00:${_timeLeft.toString().padLeft(2, '0')}",
-                                              style: GoogleFonts.inter(
-                                                color: AppColors.textDark, 
-                                                fontSize: isWeb ? 100 : (isShortMobile ? 55 : 75), 
-                                                fontWeight: FontWeight.w900, 
-                                                fontFeatures: [const FontFeature.tabularFigures()],
-                                                letterSpacing: -2,
-                                              ),
-                                            ),
-                                            Text("REMAINING SECONDS", 
-                                              style: GoogleFonts.inter(fontWeight: FontWeight.w800, fontSize: 10, color: AppColors.textDark.withOpacity(0.4))),
-                                          ],
-                                        ),
-                                    ],
-                                  ),
-
-                                  SizedBox(height: isShortMobile ? 15 : 30),
-                                ],
+                                  ],
+                                ),
                               ),
                             ),
                           ),
@@ -577,104 +618,92 @@ class _WorkoutSessionPageState extends State<WorkoutSessionPage> {
                       ),
                     ),
 
-                    // 3. COACH & CONTROLS FOOTER (fixed at bottom)
+                    // 3. COMPACT FOOTER: Coach + Controls
                     Container(
                       width: double.infinity,
                       decoration: BoxDecoration(
                         color: AppColors.surfaceWhite,
-                        borderRadius: const BorderRadius.vertical(top: Radius.circular(40)),
-                        border: Border(
-                          top: const BorderSide(color: AppColors.textDark, width: 3),
-                          left: isWeb ? const BorderSide(color: AppColors.textDark, width: 3) : BorderSide.none,
-                          right: isWeb ? const BorderSide(color: AppColors.textDark, width: 3) : BorderSide.none,
+                        borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
+                        border: const Border(
+                          top: BorderSide(color: AppColors.textDark, width: 3),
                         ),
                         boxShadow: const [
-                          BoxShadow(color: AppColors.textDark, offset: Offset(0, -4), blurRadius: 0),
+                          BoxShadow(color: AppColors.textDark, offset: Offset(0, -3), blurRadius: 0),
                         ],
                       ),
                       child: Center(
                         child: ConstrainedBox(
                           constraints: BoxConstraints(maxWidth: isWeb ? 900 : double.infinity),
                           child: Padding(
-                            padding: EdgeInsets.fromLTRB(
-                              24, 24, 24, 
-                              MediaQuery.of(context).padding.bottom + 20 
-                            ),
-                            child: Column(
-                              mainAxisSize: MainAxisSize.min,
+                            padding: EdgeInsets.fromLTRB(20, 16, 20, MediaQuery.of(context).padding.bottom + 16),
+                            child: Row(
                               children: [
-                                Row(
-                                  crossAxisAlignment: CrossAxisAlignment.center,
-                                  children: [
-                                    // --- MAINTAINED FITTIE PROFILE ---
-                                    Container(
-                                      height: isWeb ? 80 : 60,
-                                      width: isWeb ? 80 : 60,
-                                      decoration: BoxDecoration(
-                                        color: widget.themeColor.withOpacity(0.1),
-                                        shape: BoxShape.circle,
-                                        border: Border.all(color: AppColors.textDark, width: 2.5),
-                                      ),
-                                      clipBehavior: Clip.antiAlias,
-                                      child: const FittedBox(
-                                        fit: BoxFit.contain,
-                                        child: Padding(
-                                          padding: EdgeInsets.all(10.0),
-                                          child: KawaiiPolarBear(isTalking: false),
-                                        ),
-                                      ),
+                                // Bear avatar
+                                Container(
+                                  height: isWeb ? 56 : 48,
+                                  width: isWeb ? 56 : 48,
+                                  decoration: BoxDecoration(
+                                    color: widget.themeColor.withOpacity(0.1),
+                                    shape: BoxShape.circle,
+                                    border: Border.all(color: AppColors.textDark, width: 2),
+                                  ),
+                                  clipBehavior: Clip.antiAlias,
+                                  child: const FittedBox(
+                                    fit: BoxFit.contain,
+                                    child: Padding(
+                                      padding: EdgeInsets.all(8.0),
+                                      child: KawaiiPolarBear(isTalking: false),
                                     ),
-                                    const SizedBox(width: 16),
-                                    Expanded(
-                                      child: Container(
-                                        constraints: BoxConstraints(maxHeight: isWeb ? 160 : 95),
-                                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                                        decoration: BoxDecoration(
-                                          color: Colors.grey.withOpacity(0.05),
-                                          borderRadius: BorderRadius.circular(20),
-                                          border: Border.all(color: Colors.grey.withOpacity(0.2), width: 1),
-                                        ),
-                                        child: SingleChildScrollView(
-                                          physics: const BouncingScrollPhysics(),
-                                          child: Text(
-                                            _isPreviewPhase 
-                                              ? "Watch the exercise above. The workout will begin in $_previewTimeLeft seconds!"
-                                              : instruction,
-                                            style: GoogleFonts.inter(color: AppColors.textDark, fontWeight: FontWeight.w700, fontSize: isWeb ? 15 : 13, height: 1.4)),
-                                        ),
-                                      ),
-                                    ),
-                                  ],
+                                  ),
                                 ),
-                                const SizedBox(height: 24),
-                                Row(
-                                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                                  children: [
-                                    _buildPopButton(
-                                      icon: _isPaused ? Icons.play_arrow_rounded : Icons.pause_rounded,
-                                      onTap: () => setState(() {
-                                        _isPaused = !_isPaused;
-                                        if (!_isPaused) {
-                                          if (_isPreviewPhase) {
-                                            // Resume preview timer
-                                          } else {
-                                            _startTimer();
-                                          }
-                                        }
-                                      }),
-                                      color: Colors.white,
-                                      iconColor: AppColors.textDark,
-                                      isSmall: !isWeb,
+                                const SizedBox(width: 12),
+                                // Coach instruction bubble
+                                Expanded(
+                                  child: Container(
+                                    constraints: const BoxConstraints(maxHeight: 60),
+                                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                                    decoration: BoxDecoration(
+                                      color: Colors.grey.withOpacity(0.05),
+                                      borderRadius: BorderRadius.circular(16),
+                                      border: Border.all(color: AppColors.textDark.withOpacity(0.1), width: 1),
                                     ),
-                                    _buildPopButton(
-                                      icon: Icons.skip_next_rounded,
-                                      onTap: _nextExercise,
-                                      color: widget.themeColor,
-                                      iconColor: Colors.white,
-                                      isBig: true,
-                                      isSmall: !isWeb,
+                                    child: SingleChildScrollView(
+                                      physics: const BouncingScrollPhysics(),
+                                      child: Text(
+                                        _isPreviewPhase 
+                                          ? "Watch the exercise above. Starting in $_previewTimeLeft seconds!"
+                                          : instruction,
+                                        style: GoogleFonts.inter(color: AppColors.textDark, fontWeight: FontWeight.w600, fontSize: isWeb ? 13 : 12, height: 1.3)),
                                     ),
-                                  ],
+                                  ),
+                                ),
+                                const SizedBox(width: 12),
+                                // Pause button
+                                _buildPopButton(
+                                  icon: _isPaused ? Icons.play_arrow_rounded : Icons.pause_rounded,
+                                  onTap: () => setState(() {
+                                    _isPaused = !_isPaused;
+                                    if (!_isPaused) {
+                                      if (_isPreviewPhase) {
+                                        // Resume preview timer
+                                      } else {
+                                        _startTimer();
+                                      }
+                                    }
+                                  }),
+                                  color: Colors.white,
+                                  iconColor: AppColors.textDark,
+                                  isSmall: true,
+                                ),
+                                const SizedBox(width: 10),
+                                // Skip button
+                                _buildPopButton(
+                                  icon: Icons.skip_next_rounded,
+                                  onTap: _nextExercise,
+                                  color: widget.themeColor,
+                                  iconColor: Colors.white,
+                                  isBig: true,
+                                  isSmall: true,
                                 ),
                               ],
                             ),
@@ -1005,6 +1034,30 @@ class _WorkoutSessionPageState extends State<WorkoutSessionPage> {
       ),
       child: Text("${_currentIndex + 1}/${_activeRoutine.length}", 
         style: GoogleFonts.inter(fontWeight: FontWeight.w900, color: Colors.white, fontSize: 14)),
+    );
+  }
+
+  Widget _buildCompletionStat(String emoji, String value, String label) {
+    return Expanded(
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 8),
+        decoration: BoxDecoration(
+          color: widget.themeColor.withOpacity(0.06),
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: AppColors.textDark, width: 2),
+          boxShadow: const [
+            BoxShadow(color: AppColors.textDark, offset: Offset(2, 2)),
+          ],
+        ),
+        child: Column(
+          children: [
+            Text(emoji, style: const TextStyle(fontSize: 20)),
+            const SizedBox(height: 4),
+            Text(value, style: GoogleFonts.inter(fontSize: 18, fontWeight: FontWeight.w900, color: AppColors.textDark)),
+            Text(label, style: GoogleFonts.inter(fontSize: 10, fontWeight: FontWeight.w700, color: AppColors.textDark.withOpacity(0.5))),
+          ],
+        ),
+      ),
     );
   }
 

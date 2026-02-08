@@ -1,6 +1,7 @@
 import 'dart:ui';
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import '../services/firebase_service.dart';
 import 'signup_page.dart';
 import 'verify_email_page.dart';
@@ -12,7 +13,7 @@ class AppColors {
   static const mintGreen = Color(0xFFC4F7E5);
   static const limeYellow = Color(0xFFE8F5A3);
   static const cardSurface = Color(0xFFFFFEFC);
-  
+
   static const bgCream = Color(0xFFFDFBF7);
   static const primaryTeal = Color(0xFF38B2AC);
   static const primaryLight = Color(0xFFB2F5EA);
@@ -37,6 +38,7 @@ class _LoginPageState extends State<LoginPage>
   final _passCtrl = TextEditingController();
   final _firebaseService = FirebaseService();
   bool _isLoading = false;
+  bool _rememberMe = true;
   late AnimationController _fadeCtrl;
   late Animation<double> _fadeAnim;
   late Animation<Offset> _slideAnim;
@@ -69,6 +71,11 @@ class _LoginPageState extends State<LoginPage>
     setState(() => _isLoading = true);
 
     try {
+      // Set persistence based on Remember Me
+      await FirebaseAuth.instance.setPersistence(
+        _rememberMe ? Persistence.LOCAL : Persistence.SESSION,
+      );
+
       final user = await _firebaseService.signIn(
         email: _emailCtrl.text.trim(),
         password: _passCtrl.text.trim(),
@@ -149,39 +156,38 @@ class _LoginPageState extends State<LoginPage>
         ),
         child: Stack(
           children: [
+            if (isDesktop)
+              // ===== DESKTOP: SPLIT LAYOUT =====
+              Row(
+                children: [
+                  // --- LEFT BRANDING PANEL ---
+                  Expanded(
+                    flex: 5,
+                    child: _BrandingPanel(),
+                  ),
+                  // --- RIGHT FORM PANEL ---
+                  Expanded(
+                    flex: 5,
+                    child: _buildFormPanel(isDesktop),
+                  ),
+                ],
+              )
+            else
+              // ===== MOBILE: FORM ONLY =====
+              _buildFormPanel(false),
 
-          if (isDesktop)
-            // ===== DESKTOP: SPLIT LAYOUT =====
-            Row(
-              children: [
-                // --- LEFT BRANDING PANEL ---
-                Expanded(
-                  flex: 5,
-                  child: _BrandingPanel(),
+            // --- BACK BUTTON ---
+            Positioned(
+              top: 0,
+              left: 0,
+              child: SafeArea(
+                child: Padding(
+                  padding: const EdgeInsets.all(20),
+                  child: _BackButton(onTap: () => Navigator.pop(context)),
                 ),
-                // --- RIGHT FORM PANEL ---
-                Expanded(
-                  flex: 5,
-                  child: _buildFormPanel(isDesktop),
-                ),
-              ],
-            )
-          else
-            // ===== MOBILE: FORM ONLY =====
-            _buildFormPanel(false),
-
-          // --- BACK BUTTON ---
-          Positioned(
-            top: 0,
-            left: 0,
-            child: SafeArea(
-              child: Padding(
-                padding: const EdgeInsets.all(20),
-                child: _BackButton(onTap: () => Navigator.pop(context)),
               ),
             ),
-          ),
-        ],
+          ],
         ),
       ),
     );
@@ -279,7 +285,51 @@ class _LoginPageState extends State<LoginPage>
                       icon: Icons.lock_outline,
                       isPassword: true),
 
-                  const SizedBox(height: 32),
+                  const SizedBox(height: 16),
+
+                  // --- REMEMBER ME ---
+                  GestureDetector(
+                    onTap: () => setState(() => _rememberMe = !_rememberMe),
+                    child: Row(
+                      children: [
+                        AnimatedContainer(
+                          duration: const Duration(milliseconds: 150),
+                          width: 22,
+                          height: 22,
+                          decoration: BoxDecoration(
+                            color: _rememberMe
+                                ? AppColors.primaryTeal
+                                : Colors.white,
+                            borderRadius: BorderRadius.circular(6),
+                            border: Border.all(
+                                color: _rememberMe
+                                    ? AppColors.borderBlack
+                                    : AppColors.textSoft,
+                                width: 2),
+                            boxShadow: _rememberMe
+                                ? const [
+                                    BoxShadow(
+                                        color: AppColors.borderBlack,
+                                        offset: Offset(1.5, 1.5))
+                                  ]
+                                : [],
+                          ),
+                          child: _rememberMe
+                              ? const Icon(Icons.check_rounded,
+                                  size: 14, color: Colors.white)
+                              : null,
+                        ),
+                        const SizedBox(width: 10),
+                        Text("Remember me",
+                            style: GoogleFonts.inter(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w600,
+                                color: AppColors.textDark)),
+                      ],
+                    ),
+                  ),
+
+                  const SizedBox(height: 24),
 
                   // --- LOG IN BUTTON ---
                   SquishyButton(

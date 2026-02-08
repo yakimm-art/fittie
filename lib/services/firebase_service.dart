@@ -1,3 +1,5 @@
+import 'dart:convert';
+import 'dart:typed_data';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:intl/intl.dart';
@@ -10,7 +12,8 @@ class FirebaseService {
   // 1. AUTHENTICATION
   // ---------------------------------------------------------------------------
 
-  Future<User?> signUp({required String email, required String password}) async {
+  Future<User?> signUp(
+      {required String email, required String password}) async {
     try {
       UserCredential credential = await _auth.createUserWithEmailAndPassword(
         email: email,
@@ -27,7 +30,8 @@ class FirebaseService {
     }
   }
 
-  Future<User?> signIn({required String email, required String password}) async {
+  Future<User?> signIn(
+      {required String email, required String password}) async {
     try {
       UserCredential credential = await _auth.signInWithEmailAndPassword(
         email: email,
@@ -35,7 +39,7 @@ class FirebaseService {
       );
       return credential.user;
     } on FirebaseAuthException catch (e) {
-      throw e.message ?? "Invalid email or password."; 
+      throw e.message ?? "Invalid email or password.";
     } catch (e) {
       throw "Login failed. Please try again.";
     }
@@ -86,12 +90,12 @@ class FirebaseService {
     try {
       double w = double.tryParse(weight) ?? 70;
       double h = double.tryParse(height) ?? 170;
-      double bmr = (10 * w) + (6.25 * h) - (5 * age) + 5; 
-      
+      double bmr = (10 * w) + (6.25 * h) - (5 * age) + 5;
+
       double multiplier = 1.2;
       if (activityLevel == 'Lightly Active') multiplier = 1.375;
       if (activityLevel == 'Very Active') multiplier = 1.55;
-      
+
       int dailyCalorieGoal = (bmr * multiplier).round();
 
       await _firestore.collection('users').doc(uid).set({
@@ -110,6 +114,7 @@ class FirebaseService {
           'user_notes': extraNotes ?? "None",
         },
         'streak': 0,
+        'role': 'user',
         'createdAt': FieldValue.serverTimestamp(),
         'lastActive': FieldValue.serverTimestamp(),
         'hasLoggedToday': false,
@@ -126,6 +131,34 @@ class FirebaseService {
     await _firestore.collection('users').doc(user.uid).update(data);
   }
 
+  /// Save profile picture as base64 string in Firestore
+  Future<void> saveProfilePicture(Uint8List imageBytes) async {
+    final user = currentUser;
+    if (user == null) return;
+    final base64Image = base64Encode(imageBytes);
+    await _firestore.collection('users').doc(user.uid).update({
+      'profilePicture': base64Image,
+    });
+  }
+
+  /// Get profile picture as Uint8List (decoded from base64)
+  Future<Uint8List?> getProfilePicture() async {
+    final user = currentUser;
+    if (user == null) return null;
+    final doc = await _firestore.collection('users').doc(user.uid).get();
+    if (doc.exists && doc.data()?['profilePicture'] != null) {
+      return base64Decode(doc.data()!['profilePicture']);
+    }
+    return null;
+  }
+
+  /// Stream user profile data for real-time updates
+  Stream<DocumentSnapshot> getUserProfileStream() {
+    final user = currentUser;
+    if (user == null) return const Stream.empty();
+    return _firestore.collection('users').doc(user.uid).snapshots();
+  }
+
   // ---------------------------------------------------------------------------
   // 3. STREAK & LOGGING
   // ---------------------------------------------------------------------------
@@ -133,7 +166,7 @@ class FirebaseService {
   Future<int> getStreak() async {
     final user = _auth.currentUser;
     if (user == null) return 0;
-    
+
     final doc = await _firestore.collection('users').doc(user.uid).get();
     if (doc.exists) {
       return doc.data()?['streak'] ?? 0;
@@ -156,9 +189,9 @@ class FirebaseService {
     final now = DateTime.now();
     final lastDate = lastCheckIn.toDate();
 
-    return now.year == lastDate.year && 
-           now.month == lastDate.month && 
-           now.day == lastDate.day;
+    return now.year == lastDate.year &&
+        now.month == lastDate.month &&
+        now.day == lastDate.day;
   }
 
   /// Log mood / energy check-in. Does NOT update streak — streak is only
@@ -200,7 +233,8 @@ class FirebaseService {
     try {
       return await _firestore.runTransaction((transaction) async {
         final userDoc = await transaction.get(userRef);
-        final data = userDoc.exists ? userDoc.data() as Map<String, dynamic> : {};
+        final data =
+            userDoc.exists ? userDoc.data() as Map<String, dynamic> : {};
 
         int currentStreak = data['streak'] ?? 0;
         Timestamp? lastWorkoutTs = data['lastWorkoutDate'];
@@ -208,7 +242,8 @@ class FirebaseService {
         int newStreak = currentStreak;
         if (lastWorkoutTs != null) {
           final lastDate = lastWorkoutTs.toDate();
-          final lastDateOnly = DateTime(lastDate.year, lastDate.month, lastDate.day);
+          final lastDateOnly =
+              DateTime(lastDate.year, lastDate.month, lastDate.day);
           final todayOnly = DateTime(today.year, today.month, today.day);
           final difference = todayOnly.difference(lastDateOnly).inDays;
 
@@ -248,7 +283,7 @@ class FirebaseService {
         .collection('users')
         .doc(user.uid)
         .collection('workouts')
-        .orderBy('timestamp', descending: true) 
+        .orderBy('timestamp', descending: true)
         .snapshots();
   }
 
@@ -270,14 +305,19 @@ class FirebaseService {
     return snapshot.docs.length;
   }
 
-  Future<int> saveCompletedWorkout(List<dynamic> routine, int durationSecs) async {
+  Future<int> saveCompletedWorkout(
+      List<dynamic> routine, int durationSecs) async {
     final user = _auth.currentUser;
     if (user == null) return 0;
 
     final now = DateTime.now();
     final formattedDate = DateFormat('MMM d, yyyy').format(now);
 
-    await _firestore.collection('users').doc(user.uid).collection('workouts').add({
+    await _firestore
+        .collection('users')
+        .doc(user.uid)
+        .collection('workouts')
+        .add({
       'timestamp': FieldValue.serverTimestamp(),
       'routine': routine,
       'totalDuration': durationSecs,
@@ -294,15 +334,17 @@ class FirebaseService {
     if (user == null) return List.filled(7, 0.0);
 
     final now = DateTime.now();
-    final sevenDaysAgo = now.subtract(const Duration(days: 6)); 
-    final startOfWindow = DateTime(sevenDaysAgo.year, sevenDaysAgo.month, sevenDaysAgo.day);
+    final sevenDaysAgo = now.subtract(const Duration(days: 6));
+    final startOfWindow =
+        DateTime(sevenDaysAgo.year, sevenDaysAgo.month, sevenDaysAgo.day);
 
     try {
       final snapshot = await _firestore
           .collection('users')
           .doc(user.uid)
           .collection('workouts')
-          .where('timestamp', isGreaterThanOrEqualTo: Timestamp.fromDate(startOfWindow))
+          .where('timestamp',
+              isGreaterThanOrEqualTo: Timestamp.fromDate(startOfWindow))
           .get();
 
       List<double> weeklyData = List.filled(7, 0.0);
@@ -315,7 +357,7 @@ class FirebaseService {
 
         double calories = 0;
         bool foundSpecificCalories = false;
-        
+
         for (var ex in routine) {
           if (ex['calories'] != null) {
             calories += (ex['calories'] as num).toDouble();
@@ -324,15 +366,16 @@ class FirebaseService {
         }
 
         if (!foundSpecificCalories || calories == 0) {
-           calories = (totalDuration / 60) * 7;
+          calories = (totalDuration / 60) * 7;
         }
 
-        final workoutDate = DateTime(timestamp.year, timestamp.month, timestamp.day);
+        final workoutDate =
+            DateTime(timestamp.year, timestamp.month, timestamp.day);
         final todayDate = DateTime(now.year, now.month, now.day);
         final diff = todayDate.difference(workoutDate).inDays;
 
         if (diff >= 0 && diff < 7) {
-          int index = 6 - diff; 
+          int index = 6 - diff;
           weeklyData[index] += calories;
         }
       }
@@ -364,12 +407,13 @@ class FirebaseService {
       for (var doc in snapshot.docs) {
         final data = doc.data();
         final routine = data['routine'] as List<dynamic>? ?? [];
-        
+
         for (var ex in routine) {
           int duration = ex['duration'] ?? 45;
           breakdown.add({
             'name': ex['name'] ?? 'Workout',
-            'duration': duration < 60 ? "${duration}s" : "${(duration/60).ceil()}m",
+            'duration':
+                duration < 60 ? "${duration}s" : "${(duration / 60).ceil()}m",
             'calories': ex['calories'] ?? 5,
             'emoji': ex['emoji'] ?? '⚡',
           });
@@ -396,7 +440,7 @@ class FirebaseService {
   Future<bool> checkEmailVerified() async {
     final user = _auth.currentUser;
     if (user != null) {
-      await user.reload(); 
+      await user.reload();
       return user.emailVerified;
     }
     return false;
@@ -425,7 +469,8 @@ class FirebaseService {
       if (snapshot.docs.isEmpty) return "User has no prior workout history.";
 
       final buffer = StringBuffer();
-      buffer.writeln("=== WORKOUT HISTORY (${snapshot.docs.length} sessions) ===");
+      buffer.writeln(
+          "=== WORKOUT HISTORY (${snapshot.docs.length} sessions) ===");
 
       // Track muscle group frequency and progression
       Map<String, int> muscleGroupFrequency = {};
@@ -449,10 +494,12 @@ class FirebaseService {
           final muscleGroup = ex['muscle_group'] ?? 'General';
           final exDuration = ex['duration'] ?? 45;
 
-          buffer.writeln("  - $name | ${exDuration}s | $calories kcal | Intensity: $intensity/10 | Muscle: $muscleGroup");
+          buffer.writeln(
+              "  - $name | ${exDuration}s | $calories kcal | Intensity: $intensity/10 | Muscle: $muscleGroup");
 
           totalCalories += (calories as num).toInt();
-          muscleGroupFrequency[muscleGroup] = (muscleGroupFrequency[muscleGroup] ?? 0) + 1;
+          muscleGroupFrequency[muscleGroup] =
+              (muscleGroupFrequency[muscleGroup] ?? 0) + 1;
 
           if (!exerciseIntensityOverTime.containsKey(name)) {
             exerciseIntensityOverTime[name] = [];
@@ -478,7 +525,9 @@ class FirebaseService {
         if (entry.value.length >= 2) {
           final first = entry.value.last; // oldest
           final last = entry.value.first; // newest
-          final trend = last > first ? "IMPROVING" : (last < first ? "DECREASING" : "STABLE");
+          final trend = last > first
+              ? "IMPROVING"
+              : (last < first ? "DECREASING" : "STABLE");
           buffer.writeln("  - ${entry.key}: $first -> $last ($trend)");
         }
       }
@@ -501,11 +550,14 @@ class FirebaseService {
 
     try {
       await _firestore.collection('users').doc(user.uid).update({
-        'chatHistory': messages.map((m) => {
-          'role': m['role'],
-          'text': m['text'],
-          'timestamp': m['timestamp'] ?? DateTime.now().toIso8601String(),
-        }).toList(),
+        'chatHistory': messages
+            .map((m) => {
+                  'role': m['role'],
+                  'text': m['text'],
+                  'timestamp':
+                      m['timestamp'] ?? DateTime.now().toIso8601String(),
+                })
+            .toList(),
         'chatUpdatedAt': FieldValue.serverTimestamp(),
       });
     } catch (e) {
@@ -525,11 +577,14 @@ class FirebaseService {
       final data = doc.data()!;
       final history = data['chatHistory'] as List<dynamic>? ?? [];
 
-      return history.map((m) => {
-        'role': (m['role'] ?? 'fittie') as String,
-        'text': (m['text'] ?? '') as String,
-        'timestamp': (m['timestamp'] ?? '') as String,
-      }).toList().cast<Map<String, dynamic>>();
+      return history
+          .map((m) => {
+                'role': (m['role'] ?? 'fittie') as String,
+                'text': (m['text'] ?? '') as String,
+                'timestamp': (m['timestamp'] ?? '') as String,
+              })
+          .toList()
+          .cast<Map<String, dynamic>>();
     } catch (e) {
       print("Error loading chat history: $e");
       return [];
@@ -564,6 +619,80 @@ USER PROFILE:
 ''';
     } catch (e) {
       return "";
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  // 8. BLOG APPROVAL SYSTEM
+  // ---------------------------------------------------------------------------
+
+  /// Check if any admin account exists in the system
+  Future<bool> hasAnyAdmin() async {
+    try {
+      final snap = await _firestore
+          .collection('users')
+          .where('role', isEqualTo: 'admin')
+          .limit(1)
+          .get();
+      return snap.docs.isNotEmpty;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  /// Claim admin role (only works if no admin exists yet)
+  Future<bool> claimAdmin() async {
+    final user = _auth.currentUser;
+    if (user == null) return false;
+    try {
+      final existing = await hasAnyAdmin();
+      if (existing) return false;
+      await _firestore.collection('users').doc(user.uid).update({
+        'role': 'admin',
+      });
+      return true;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  /// Approve a pending blog post
+  Future<void> approveBlogPost(String docId) async {
+    await _firestore.collection('blog_posts').doc(docId).update({
+      'status': 'approved',
+      'approvedAt': FieldValue.serverTimestamp(),
+      'approvedBy': _auth.currentUser?.uid,
+    });
+  }
+
+  /// Reject a pending blog post
+  Future<void> rejectBlogPost(String docId) async {
+    await _firestore.collection('blog_posts').doc(docId).update({
+      'status': 'rejected',
+      'rejectedAt': FieldValue.serverTimestamp(),
+      'rejectedBy': _auth.currentUser?.uid,
+    });
+  }
+
+  /// Stream of pending blog posts (for admin review)
+  Stream<QuerySnapshot> getPendingPostsStream() {
+    return _firestore
+        .collection('blog_posts')
+        .where('status', isEqualTo: 'pending')
+        .orderBy('createdAt', descending: true)
+        .snapshots();
+  }
+
+  /// Get current user's display name from Firestore
+  Future<String> getCurrentUserName() async {
+    final user = _auth.currentUser;
+    if (user == null) return '';
+    try {
+      final doc = await _firestore.collection('users').doc(user.uid).get();
+      if (!doc.exists) return user.displayName ?? '';
+      return (doc.data()?['name'] as String?) ?? user.displayName ?? '';
+    } catch (e) {
+      return user.displayName ?? '';
     }
   }
 }

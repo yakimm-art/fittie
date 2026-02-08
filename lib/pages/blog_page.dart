@@ -3,6 +3,9 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'landing_page.dart';
 import 'brutalist_page_shell.dart';
 import 'blog_entry_page.dart';
+import 'blog_admin_page.dart';
+import 'blog_detail_page.dart';
+import '../services/firebase_service.dart';
 
 class BlogPage extends StatelessWidget {
   const BlogPage({super.key});
@@ -15,6 +18,8 @@ class BlogPage extends StatelessWidget {
           "Read and share fitness stories, tips, and ideas with the Fittie community.",
       children: [
         _PostEntryButton(),
+        const SizedBox(height: 16),
+        _AdminReviewButton(),
         const SizedBox(height: 56),
         _CommunityPosts(),
         const SizedBox(height: 80),
@@ -35,8 +40,10 @@ class _PostEntryButtonState extends State<_PostEntryButton> {
   @override
   Widget build(BuildContext context) {
     final so = _hov ? 8.0 : 5.0;
+    final screenW = MediaQuery.of(context).size.width;
+    final isMobile = screenW < 600;
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 24),
+      padding: EdgeInsets.symmetric(horizontal: isMobile ? 16 : 24),
       child: Center(
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: AppDimensions.maxWidth),
@@ -45,61 +52,59 @@ class _PostEntryButtonState extends State<_PostEntryButton> {
               onEnter: (_) => setState(() => _hov = true),
               onExit: (_) => setState(() => _hov = false),
               child: GestureDetector(
-                onTap: () => Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                        builder: (_) => const BlogEntryPage())),
+                onTap: () => Navigator.push(context,
+                    MaterialPageRoute(builder: (_) => const BlogEntryPage())),
                 child: AnimatedContainer(
                   duration: const Duration(milliseconds: 200),
                   curve: Curves.easeOut,
                   transform: Matrix4.translationValues(
                       _hov ? -2 : 0, _hov ? -2 : 0, 0),
-                  padding:
-                      const EdgeInsets.symmetric(vertical: 28, horizontal: 32),
+                  padding: EdgeInsets.symmetric(
+                      vertical: isMobile ? 20 : 28,
+                      horizontal: isMobile ? 20 : 32),
                   decoration: BoxDecoration(
                     color: AppColors.primaryTeal,
-                    borderRadius: BorderRadius.circular(24),
-                    border:
-                        Border.all(color: AppColors.borderBlack, width: 3),
+                    borderRadius: BorderRadius.circular(isMobile ? 18 : 24),
+                    border: Border.all(color: AppColors.borderBlack, width: 3),
                     boxShadow: [
                       BoxShadow(
-                          color: AppColors.borderBlack,
-                          offset: Offset(so, so))
+                          color: AppColors.borderBlack, offset: Offset(so, so))
                     ],
                   ),
                   child: Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       Container(
-                        padding: const EdgeInsets.all(10),
+                        padding: EdgeInsets.all(isMobile ? 8 : 10),
                         decoration: BoxDecoration(
                           color: Colors.white.withOpacity(0.2),
                           borderRadius: BorderRadius.circular(12),
                         ),
-                        child: const Icon(Icons.edit_rounded,
-                            size: 22, color: Colors.white),
+                        child: Icon(Icons.edit_rounded,
+                            size: isMobile ? 20 : 22, color: Colors.white),
                       ),
-                      const SizedBox(width: 16),
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text("POST AN ENTRY",
-                              style: GoogleFonts.inter(
-                                  fontSize: 18,
-                                  fontWeight: FontWeight.w900,
-                                  color: Colors.white,
-                                  letterSpacing: 1)),
-                          const SizedBox(height: 2),
-                          Text(
-                              "Share your workout wins, tips, or ideas",
-                              style: GoogleFonts.inter(
-                                  fontSize: 13,
-                                  color: Colors.white.withOpacity(0.8))),
-                        ],
+                      SizedBox(width: isMobile ? 12 : 16),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text("POST AN ENTRY",
+                                style: GoogleFonts.inter(
+                                    fontSize: isMobile ? 15 : 18,
+                                    fontWeight: FontWeight.w900,
+                                    color: Colors.white,
+                                    letterSpacing: 1)),
+                            const SizedBox(height: 2),
+                            Text("Share your workout wins, tips, or ideas",
+                                style: GoogleFonts.inter(
+                                    fontSize: isMobile ? 12 : 13,
+                                    color: Colors.white.withOpacity(0.8)),
+                                overflow: TextOverflow.ellipsis),
+                          ],
+                        ),
                       ),
-                      const Spacer(),
-                      const Icon(Icons.arrow_forward_rounded,
-                          size: 24, color: Colors.white),
+                      SizedBox(width: isMobile ? 8 : 16),
+                      Icon(Icons.arrow_forward_rounded,
+                          size: isMobile ? 20 : 24, color: Colors.white),
                     ],
                   ),
                 ),
@@ -112,12 +117,170 @@ class _PostEntryButtonState extends State<_PostEntryButton> {
   }
 }
 
-// --- COMMUNITY POSTS (from Firestore) ---
-class _CommunityPosts extends StatelessWidget {
+// --- ADMIN REVIEW BUTTON (only visible to admins) ---
+class _AdminReviewButton extends StatefulWidget {
+  @override
+  State<_AdminReviewButton> createState() => _AdminReviewButtonState();
+}
+
+class _AdminReviewButtonState extends State<_AdminReviewButton> {
+  bool _isAdmin = false;
+  bool _hov = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _checkAdmin();
+  }
+
+  Future<void> _checkAdmin() async {
+    final admin = await FirebaseService().isAdmin();
+    if (mounted) setState(() => _isAdmin = admin);
+  }
+
   @override
   Widget build(BuildContext context) {
+    if (!_isAdmin) return const SizedBox.shrink();
+    final screenW = MediaQuery.of(context).size.width;
+    final isMobile = screenW < 600;
+
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 24),
+      padding: EdgeInsets.symmetric(horizontal: isMobile ? 16 : 24),
+      child: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: AppDimensions.maxWidth),
+          child: FadeSlideIn(
+            child: StreamBuilder<QuerySnapshot>(
+              stream: FirebaseService().getPendingPostsStream(),
+              builder: (context, snapshot) {
+                final pendingCount = snapshot.data?.docs.length ?? 0;
+                final so = _hov ? 8.0 : 5.0;
+
+                return MouseRegion(
+                  onEnter: (_) => setState(() => _hov = true),
+                  onExit: (_) => setState(() => _hov = false),
+                  child: GestureDetector(
+                    onTap: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) => const BlogAdminPage()),
+                    ),
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 200),
+                      curve: Curves.easeOut,
+                      transform: Matrix4.translationValues(
+                          _hov ? -2 : 0, _hov ? -2 : 0, 0),
+                      padding: EdgeInsets.symmetric(
+                          vertical: isMobile ? 14 : 18,
+                          horizontal: isMobile ? 16 : 24),
+                      decoration: BoxDecoration(
+                        color: AppColors.accentYellow,
+                        borderRadius: BorderRadius.circular(16),
+                        border:
+                            Border.all(color: AppColors.borderBlack, width: 3),
+                        boxShadow: [
+                          BoxShadow(
+                              color: AppColors.borderBlack,
+                              offset: Offset(so, so))
+                        ],
+                      ),
+                      child: Row(
+                        children: [
+                          Container(
+                            padding: EdgeInsets.all(isMobile ? 6 : 8),
+                            decoration: BoxDecoration(
+                              color: Colors.white.withOpacity(0.3),
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            child: Icon(Icons.admin_panel_settings_rounded,
+                                size: isMobile ? 18 : 20,
+                                color: AppColors.textDark),
+                          ),
+                          SizedBox(width: isMobile ? 10 : 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                    isMobile
+                                        ? "REVIEW POSTS"
+                                        : "ADMIN: REVIEW POSTS",
+                                    style: GoogleFonts.inter(
+                                        fontSize: isMobile ? 13 : 15,
+                                        fontWeight: FontWeight.w900,
+                                        color: AppColors.textDark,
+                                        letterSpacing: 1)),
+                                const SizedBox(height: 2),
+                                Text(
+                                    "$pendingCount post${pendingCount == 1 ? '' : 's'} awaiting approval",
+                                    style: GoogleFonts.inter(
+                                        fontSize: isMobile ? 11 : 12,
+                                        fontWeight: FontWeight.w600,
+                                        color: AppColors.textDark
+                                            .withOpacity(0.7)),
+                                    overflow: TextOverflow.ellipsis),
+                              ],
+                            ),
+                          ),
+                          if (pendingCount > 0)
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 10, vertical: 4),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFE53E3E),
+                                borderRadius: BorderRadius.circular(20),
+                                border: Border.all(
+                                    color: AppColors.borderBlack, width: 2),
+                              ),
+                              child: Text("$pendingCount",
+                                  style: GoogleFonts.inter(
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w900,
+                                      color: Colors.white)),
+                            ),
+                          SizedBox(width: isMobile ? 4 : 8),
+                          Icon(Icons.arrow_forward_rounded,
+                              size: isMobile ? 18 : 20,
+                              color: AppColors.textDark),
+                        ],
+                      ),
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// --- COMMUNITY POSTS (from Firestore) ---
+class _CommunityPosts extends StatefulWidget {
+  @override
+  State<_CommunityPosts> createState() => _CommunityPostsState();
+}
+
+class _CommunityPostsState extends State<_CommunityPosts> {
+  bool _isAdmin = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _checkAdmin();
+  }
+
+  Future<void> _checkAdmin() async {
+    final admin = await FirebaseService().isAdmin();
+    if (mounted) setState(() => _isAdmin = admin);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final screenW = MediaQuery.of(context).size.width;
+    final isMobile = screenW < 600;
+    return Padding(
+      padding: EdgeInsets.symmetric(horizontal: isMobile ? 16 : 24),
       child: Center(
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: AppDimensions.maxWidth),
@@ -180,7 +343,15 @@ class _CommunityPosts extends StatelessWidget {
                     );
                   }
 
-                  final docs = snapshot.data?.docs ?? [];
+                  var docs = snapshot.data?.docs ?? [];
+                  // Non-admins only see approved posts
+                  if (!_isAdmin) {
+                    docs = docs
+                        .where((d) =>
+                            (d.data() as Map<String, dynamic>)['status'] ==
+                            'approved')
+                        .toList();
+                  }
                   if (docs.isEmpty) {
                     return _EmptyState(
                       icon: Icons.article_outlined,
@@ -196,7 +367,7 @@ class _CommunityPosts extends StatelessWidget {
                       final data = e.value.data() as Map<String, dynamic>;
                       return FadeSlideIn(
                         delayMs: e.key * 80,
-                        child: _PostCard(data: data),
+                        child: _PostCard(docId: e.value.id, data: data),
                       );
                     }).toList();
 
@@ -269,8 +440,9 @@ class _EmptyState extends StatelessWidget {
 }
 
 class _PostCard extends StatefulWidget {
+  final String docId;
   final Map<String, dynamic> data;
-  const _PostCard({required this.data});
+  const _PostCard({required this.docId, required this.data});
   @override
   State<_PostCard> createState() => _PostCardState();
 }
@@ -311,87 +483,120 @@ class _PostCardState extends State<_PostCard> {
     final content = widget.data['content'] ?? '';
     final author = widget.data['author'] ?? 'Anonymous';
     final category = widget.data['category'] ?? 'General';
+    final status = widget.data['status'] as String? ?? 'approved';
     final createdAt = widget.data['createdAt'] as Timestamp?;
     final catColor = _categoryColor(category);
+    final isPending = status == 'pending';
     final so = _hov ? 10.0 : 6.0;
 
-    return MouseRegion(
-      onEnter: (_) => setState(() => _hov = true),
-      onExit: (_) => setState(() => _hov = false),
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        curve: Curves.easeOut,
-        transform: Matrix4.translationValues(_hov ? -2 : 0, _hov ? -2 : 0, 0),
-        padding: const EdgeInsets.all(24),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: AppColors.borderBlack, width: 3),
-          boxShadow: [
-            BoxShadow(color: AppColors.borderBlack, offset: Offset(so, so))
-          ],
+    final screenW = MediaQuery.of(context).size.width;
+    final isMobile = screenW < 600;
+
+    return GestureDetector(
+      onTap: () => Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) =>
+              BlogDetailPage(docId: widget.docId, data: widget.data),
         ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Top row: category + time
-            Row(
-              children: [
-                BrutalistTag(label: category.toUpperCase(), color: catColor),
-                const Spacer(),
-                Text(_timeAgo(createdAt),
-                    style: GoogleFonts.inter(
-                        fontSize: 11, color: AppColors.textSoft)),
-              ],
-            ),
-            const SizedBox(height: 16),
-            // Title
-            Text(title,
+      ),
+      child: MouseRegion(
+        onEnter: (_) => setState(() => _hov = true),
+        onExit: (_) => setState(() => _hov = false),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          curve: Curves.easeOut,
+          transform: Matrix4.translationValues(_hov ? -2 : 0, _hov ? -2 : 0, 0),
+          padding: EdgeInsets.all(isMobile ? 16 : 24),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: AppColors.borderBlack, width: 3),
+            boxShadow: [
+              BoxShadow(color: AppColors.borderBlack, offset: Offset(so, so))
+            ],
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Top row: category + time
+              Row(
+                children: [
+                  BrutalistTag(label: category.toUpperCase(), color: catColor),
+                  if (isPending) ...[
+                    const SizedBox(width: 8),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 8, vertical: 3),
+                      decoration: BoxDecoration(
+                        color: AppColors.accentYellow.withOpacity(0.25),
+                        borderRadius: BorderRadius.circular(6),
+                        border: Border.all(
+                            color: AppColors.accentYellow, width: 1.5),
+                      ),
+                      child: Text("PENDING",
+                          style: GoogleFonts.inter(
+                              fontSize: 9,
+                              fontWeight: FontWeight.w900,
+                              color: AppColors.textDark,
+                              letterSpacing: 0.5)),
+                    ),
+                  ],
+                  const Spacer(),
+                  Text(_timeAgo(createdAt),
+                      style: GoogleFonts.inter(
+                          fontSize: 11, color: AppColors.textSoft)),
+                ],
+              ),
+              const SizedBox(height: 16),
+              // Title
+              Text(title,
+                  style: GoogleFonts.inter(
+                      fontSize: isMobile ? 16 : 18,
+                      fontWeight: FontWeight.w900,
+                      color: AppColors.textDark,
+                      letterSpacing: -0.3)),
+              const SizedBox(height: 8),
+              // Content preview (first 150 chars)
+              Text(
+                content.length > 150
+                    ? '${content.substring(0, 150)}...'
+                    : content,
                 style: GoogleFonts.inter(
-                    fontSize: 18,
-                    fontWeight: FontWeight.w900,
-                    color: AppColors.textDark,
-                    letterSpacing: -0.3)),
-            const SizedBox(height: 8),
-            // Content preview (first 150 chars)
-            Text(
-              content.length > 150
-                  ? '${content.substring(0, 150)}...'
-                  : content,
-              style: GoogleFonts.inter(
-                  fontSize: 14, color: AppColors.textSoft, height: 1.5),
-            ),
-            const SizedBox(height: 16),
-            // Author
-            Row(
-              children: [
-                Container(
-                  width: 28,
-                  height: 28,
-                  decoration: BoxDecoration(
-                    color: catColor.withOpacity(0.15),
-                    borderRadius: BorderRadius.circular(8),
-                    border:
-                        Border.all(color: AppColors.borderBlack, width: 1.5),
+                    fontSize: 14, color: AppColors.textSoft, height: 1.5),
+              ),
+              const SizedBox(height: 16),
+              // Author
+              Row(
+                children: [
+                  Container(
+                    width: 28,
+                    height: 28,
+                    decoration: BoxDecoration(
+                      color: catColor.withOpacity(0.15),
+                      borderRadius: BorderRadius.circular(8),
+                      border:
+                          Border.all(color: AppColors.borderBlack, width: 1.5),
+                    ),
+                    alignment: Alignment.center,
+                    child: Text(
+                      author.isNotEmpty ? author[0].toUpperCase() : "?",
+                      style: GoogleFonts.inter(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w900,
+                          color: catColor),
+                    ),
                   ),
-                  alignment: Alignment.center,
-                  child: Text(
-                    author.isNotEmpty ? author[0].toUpperCase() : "?",
-                    style: GoogleFonts.inter(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w900,
-                        color: catColor),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Text(author,
-                    style: GoogleFonts.inter(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w700,
-                        color: AppColors.textDark)),
-              ],
-            ),
-          ],
+                  const SizedBox(width: 8),
+                  Text(author,
+                      style: GoogleFonts.inter(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w700,
+                          color: AppColors.textDark)),
+                ],
+              ),
+            ],
+          ),
         ),
       ),
     );
