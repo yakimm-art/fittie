@@ -54,3 +54,7 @@ infra/README.md
 .gitignore
 scripts/check-env.sh
 scripts/GUIDE.md
+
+# Build cache
+.dart_tool/
+.firebase/
